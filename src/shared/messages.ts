@@ -1,4 +1,21 @@
 import type { RunState } from '../core/types';
+import type { LlmApiContract, LlmProfile, ModelDiscoveryStatus } from './settings';
+
+export interface LlmDiagnostic {
+  endpoint: string;
+  apiContract: LlmApiContract;
+  status?: number;
+  requestId?: string;
+  responseExcerpt?: string;
+}
+
+export interface ModelDiscoveryResult {
+  status: Exclude<ModelDiscoveryStatus, 'untested'>;
+  models: string[];
+  checkedAt: number;
+  message: string;
+  diagnostic?: LlmDiagnostic;
+}
 
 /** Sent from the side panel / options page to the background service worker. */
 export type BackgroundRequest =
@@ -12,6 +29,7 @@ export type BackgroundRequest =
   | { type: 'run:gate'; tabId: number; decision: 'approve' | 'skip' | 'stop' }
   | { type: 'run:resume-after-help'; tabId: number }
   | { type: 'run:reset'; tabId: number }
+  | { type: 'llm:list-models'; profile: LlmProfile }
   | { type: 'perm:status' }
   | { type: 'tab:current' };
 
@@ -33,7 +51,8 @@ export type BackgroundResponse =
   | { ok: true; state: RunState }
   | { ok: true; granted: boolean }
   | { ok: true; tab: TabInfo | null }
-  | { ok: false; error: string };
+  | { ok: true; discovery: ModelDiscoveryResult }
+  | { ok: false; error: string; diagnostic?: LlmDiagnostic };
 
 /** Broadcast from the background whenever a run advances. */
 export type BackgroundEvent = { type: 'run:state'; tabId: number; state: RunState };

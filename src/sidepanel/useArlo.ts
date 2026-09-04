@@ -7,16 +7,29 @@ import {
   sendToBackground,
   type BackgroundEvent,
   type BackgroundRequest,
+  type LlmDiagnostic,
   type TabInfo,
   type UntargetedRequest,
 } from '../shared/messages';
+import {
+  getDefaultLlmProfileSummary,
+  loadSettings,
+  onSettingsChanged,
+  type LlmProfileSummary,
+} from '../shared/settings';
+
+export interface ArloError {
+  message: string;
+  diagnostic?: LlmDiagnostic;
+}
 
 export interface Arlo {
   tab: TabInfo | null;
   state: RunState;
   granted: boolean;
-  error: string | null;
+  error: ArloError | null;
   loading: boolean;
+  profile: LlmProfileSummary | null;
   requestSiteAccess: () => Promise<void>;
   send: (request: UntargetedRequest) => Promise<void>;
   submit: (prompt: string) => Promise<void>;
@@ -27,13 +40,15 @@ export function useArlo(): Arlo {
   const [tab, setTab] = useState<TabInfo | null>(null);
   const [state, setState] = useState<RunState>(initialRunState);
   const [granted, setGranted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ArloError | null>(null);
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<LlmProfileSummary | null>(null);
 
   /** One read of everything the panel shows: permission, active tab, its run. */
   const readSnapshot = useCallback(async () => {
     const permission = await sendToBackground({ type: 'perm:status' });
     const current = await sendToBackground({ type: 'tab:current' });
+    const settings = await loadSettings();
     const activeTab = 'tab' in current ? current.tab : null;
     const run = activeTab
       ? await sendToBackground({ type: 'run:get', tabId: activeTab.tabId })
@@ -43,6 +58,7 @@ export function useArlo(): Arlo {
       granted: 'granted' in permission ? permission.granted : false,
       tab: activeTab,
       state: run && 'state' in run ? run.state : null,
+      profile: getDefaultLlmProfileSummary(settings),
     };
   }, []);
 
@@ -56,6 +72,7 @@ export function useArlo(): Arlo {
         if (!live) return;
         setGranted(snapshot.granted);
         setTab(snapshot.tab);
+        setProfile(snapshot.profile);
         if (snapshot.state) setState(snapshot.state);
       });
     };
@@ -68,12 +85,16 @@ export function useArlo(): Arlo {
     chrome.runtime.onMessage.addListener(onEvent);
     chrome.tabs.onActivated.addListener(sync);
     chrome.tabs.onUpdated.addListener(sync);
+    const stopSettings = onSettingsChanged((settings) =>
+      setProfile(getDefaultLlmProfileSummary(settings)),
+    );
 
     return () => {
       live = false;
       chrome.runtime.onMessage.removeListener(onEvent);
       chrome.tabs.onActivated.removeListener(sync);
       chrome.tabs.onUpdated.removeListener(sync);
+      stopSettings();
     };
   }, [readSnapshot]);
 
@@ -85,9 +106,14 @@ export function useArlo(): Arlo {
       try {
         const response = await sendToBackground({ ...request, tabId } as BackgroundRequest);
         if ('state' in response) setState(response.state);
-        if (response.ok === false) setError(response.error);
+        if (response.ok === false) {
+          setError({
+            message: response.error,
+            ...(response.diagnostic ? { diagnostic: response.diagnostic } : {}),
+          });
+        }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError({ message: cause instanceof Error ? cause.message : String(cause) });
       } finally {
         setLoading(false);
       }
@@ -117,6 +143,7 @@ export function useArlo(): Arlo {
     granted,
     error,
     loading,
+    profile,
     requestSiteAccess,
     send,
     submit,

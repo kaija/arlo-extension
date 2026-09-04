@@ -1,6 +1,7 @@
 import type { BackgroundRequest, BackgroundResponse, TabInfo } from '../shared/messages';
 import { isBlockedUrl, loadSettings } from '../shared/settings';
 import { hasSiteAccess, syncContentScript } from './content-registration';
+import { listModels, publicLlmError } from './llm-client';
 import {
   approvePlan,
   cancelPlan,
@@ -72,6 +73,8 @@ async function handle(request: BackgroundRequest): Promise<BackgroundResponse> {
       return { ok: true, state: resumeAfterHelp(request.tabId) };
     case 'run:reset':
       return { ok: true, state: resetRun(request.tabId) };
+    case 'llm:list-models':
+      return { ok: true, discovery: await listModels(request.profile) };
     case 'perm:status':
       return { ok: true, granted: await hasSiteAccess() };
     case 'tab:current':
@@ -83,7 +86,7 @@ chrome.runtime.onMessage.addListener((message: BackgroundRequest, _sender, sendR
   handle(message)
     .then(sendResponse)
     .catch((error: unknown) => {
-      sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
+      sendResponse({ ok: false, ...publicLlmError(error) });
     });
   // Keeps the message channel open for the async response above.
   return true;

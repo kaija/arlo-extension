@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ACTION_LABELS, DEFAULT_GATED_ACTIONS } from '../core/gate-policy';
 import type { ActionKind } from '../core/types';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../shared/settings';
+import { LlmProfiles } from './LlmProfiles';
 
 const GATEABLE_ACTIONS: ActionKind[] = [
   'submit_form',
@@ -18,9 +19,13 @@ const GATEABLE_ACTIONS: ActionKind[] = [
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    void loadSettings().then(setSettings);
+    void loadSettings().then((next) => {
+      setSettings(next);
+      setLoaded(true);
+    });
   }, []);
 
   const update = async (patch: Partial<Settings>) => {
@@ -28,6 +33,7 @@ export function Options() {
     setSettings(next);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+    return next;
   };
 
   const toggleGate = (action: ActionKind, on: boolean) => {
@@ -112,33 +118,7 @@ export function Options() {
         </div>
       </section>
 
-      <section className="card">
-        <h2 className="card__title">Model</h2>
-        <div className="field">
-          <label htmlFor="model">Model</label>
-          <input
-            id="model"
-            type="text"
-            value={settings.model}
-            onChange={(event) => setSettings({ ...settings, model: event.target.value })}
-            onBlur={() => void update({ model: settings.model })}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="api-key">API key</label>
-          <input
-            id="api-key"
-            type="password"
-            autoComplete="off"
-            value={settings.apiKey}
-            onChange={(event) => setSettings({ ...settings, apiKey: event.target.value })}
-            onBlur={() => void update({ apiKey: settings.apiKey })}
-          />
-          <small>
-            Stored in this browser profile only. It is never sent anywhere but the model.
-          </small>
-        </div>
-      </section>
+      {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}
 
       <section className="card">
         <h2 className="card__title">Run history</h2>

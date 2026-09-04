@@ -60,18 +60,68 @@ function isEditable(element: Element): element is HTMLInputElement | HTMLTextAre
   return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
 }
 
+function selectorFor(element: Element): string {
+  if (element.id) return `#${CSS.escape(element.id)}`;
+  const testId = element.getAttribute('data-testid');
+  if (testId) return `[data-testid="${CSS.escape(testId)}"]`;
+  const ariaLabel = element.getAttribute('aria-label');
+  if (ariaLabel) return `${element.tagName.toLowerCase()}[aria-label="${CSS.escape(ariaLabel)}"]`;
+  const name = element.getAttribute('name');
+  if (name) return `${element.tagName.toLowerCase()}[name="${CSS.escape(name)}"]`;
+
+  const parts: string[] = [];
+  let current: Element | null = element;
+  while (current && current !== document.body && parts.length < 4) {
+    const tag = current.tagName.toLowerCase();
+    const siblings = current.parentElement
+      ? [...current.parentElement.children].filter(
+          (sibling) => sibling.tagName === current?.tagName,
+        )
+      : [];
+    const position = siblings.indexOf(current) + 1;
+    parts.unshift(siblings.length > 1 ? `${tag}:nth-of-type(${position})` : tag);
+    current = current.parentElement;
+  }
+  return parts.join(' > ');
+}
+
+function interactiveElements(): string {
+  const elements = [
+    ...document.querySelectorAll(
+      'a[href], button, input:not([type="hidden"]), textarea, select, [role="button"], [contenteditable="true"]',
+    ),
+  ].slice(0, 80);
+  return elements
+    .map((element) => {
+      const html = element as HTMLElement;
+      const inputType = element instanceof HTMLInputElement ? ` type=${element.type}` : '';
+      const label =
+        element.getAttribute('aria-label') ??
+        element.getAttribute('placeholder') ??
+        element.getAttribute('title') ??
+        (element instanceof HTMLInputElement ? element.name : html.innerText) ??
+        '';
+      const description = label.replace(/\s+/g, ' ').trim().slice(0, 120);
+      return `${selectorFor(element)} | ${element.tagName.toLowerCase()}${inputType}${description ? ` | ${description}` : ''}`;
+    })
+    .join('\n');
+}
+
 async function handle(request: ContentRequest): Promise<ContentResponse> {
   switch (request.type) {
     case 'content:ping':
       return { ok: true };
 
-    case 'content:read':
+    case 'content:read': {
+      const visibleText = (document.body?.innerText ?? '').slice(0, 8000);
+      const controls = interactiveElements().slice(0, 5000);
       return {
         ok: true,
         title: document.title,
         url: location.href,
-        text: (document.body?.innerText ?? '').slice(0, 8000),
+        text: `${visibleText}\n\nInteractive elements (selector | type | label):\n${controls}`,
       };
+    }
 
     case 'content:highlight': {
       const element = find(request.selector);

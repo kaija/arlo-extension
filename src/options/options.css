@@ -1,5 +1,5 @@
 .options {
-  max-width: 720px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 24px 16px 64px;
   display: flex;
@@ -19,8 +19,10 @@
 }
 
 .field input[type='text'],
+.field input[type='url'],
 .field input[type='password'],
 .field input[type='number'],
+.field select,
 .field textarea {
   padding: 9px 10px;
   border: 1px solid var(--border);
@@ -28,6 +30,10 @@
   background: var(--bg);
   color: var(--text);
   font: inherit;
+}
+
+.field code {
+  overflow-wrap: anywhere;
 }
 
 .field small {
@@ -60,4 +66,267 @@
 .saved {
   color: var(--success);
   font-size: 12px;
+}
+
+.section-heading,
+.editor-heading,
+.profile-row__top,
+.editor-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading .card__note {
+  margin-top: 4px;
+}
+
+.button--compact {
+  flex: none;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.72fr) minmax(0, 1.8fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.profile-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-row > span:not(.profile-row__top) {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-row--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.profile-editor {
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+.profile-editor h3,
+.contract-picker h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.contract-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contract-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.contract-option:hover,
+.contract-option:focus-visible {
+  border-color: var(--accent);
+}
+
+.contract-option span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.field--full {
+  grid-column: 1 / -1;
+}
+
+.input-with-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.input-with-actions input {
+  flex: 1;
+  min-width: 0;
+}
+
+.switch--subtle {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.status--available {
+  color: var(--success);
+}
+
+.status--unavailable {
+  color: var(--waiting);
+}
+
+.status--failed,
+.unsaved {
+  color: var(--danger);
+}
+
+.unsaved {
+  flex: none;
+  font-size: 11px;
+}
+
+.privacy-note,
+.inline-notice,
+.delete-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  font-size: 12px;
+}
+
+.inline-notice {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.delete-confirmation {
+  border-color: var(--danger);
+}
+
+.delete-confirmation p {
+  margin: 4px 0 0;
+}
+
+.diagnostic {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.diagnostic summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.diagnostic dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+  margin: 8px 0 0;
+}
+
+.diagnostic dt {
+  color: var(--text-muted);
+}
+
+.diagnostic dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.editor-actions {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 2px;
+}
+
+.editor-actions .actions {
+  margin-top: 0;
+}
+
+.actions--secondary {
+  margin-left: auto;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-editor {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .section-heading,
+  .editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions--secondary {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .input-with-actions {
+    flex-wrap: wrap;
+  }
+
+  .input-with-actions input {
+    flex-basis: 100%;
+  }
 }

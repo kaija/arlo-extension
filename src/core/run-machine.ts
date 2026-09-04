@@ -14,6 +14,7 @@ export const initialRunState: RunState = {
 export type RunEvent =
   | { type: 'TASK_SUBMITTED'; task: Task }
   | { type: 'PLAN_READY'; plan: Plan }
+  | { type: 'PLAN_FAILED'; message: string; at: number }
   | { type: 'PLAN_APPROVED'; at: number }
   | { type: 'PLAN_CANCELLED' }
   | { type: 'STEP_STARTED'; index: number }
@@ -94,6 +95,10 @@ export function reduce(state: RunState, event: RunEvent): RunState {
     case 'PLAN_READY':
       if (state.phase !== 'planning') return state;
       return { ...state, phase: 'awaiting_approval', plan: event.plan, currentStepIndex: -1 };
+
+    case 'PLAN_FAILED':
+      if (state.phase !== 'planning') return state;
+      return { ...state, phase: 'failed', summary: event.message, endedAt: event.at };
 
     case 'PLAN_APPROVED':
       if (state.phase !== 'awaiting_approval') return state;

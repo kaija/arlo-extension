@@ -13,9 +13,9 @@ The interaction design lives in [`design/arlo-sidepanel-design-prompt.md`](desig
 
 ## Status
 
-This repository is the working scaffold: the extension loads, the state machine and gate policy are
-implemented and tested, the side panel drives a real run, and the content script performs the page
-actions. The planner is currently deterministic — see [Wiring a real planner](#wiring-a-real-planner).
+This repository is the working extension: the state machine and gate policy are implemented and
+tested, the side panel drives a real run, the content script performs page actions, and the planner
+can use Anthropic Messages, OpenAI Responses, or OpenAI-compatible Chat Completions.
 
 ## Requirements
 
@@ -85,7 +85,7 @@ src/
 │   ├── run-machine.ts     #   the state machine as a pure reducer
 │   ├── gate-policy.ts     #   which actions are irreversible
 │   └── suggestions.ts     #   site-aware example tasks
-├── background/            # service worker: routing, run execution, planning
+├── background/            # service worker: routing, run execution, planning and model APIs
 ├── content/               # page actions and the on-page highlight
 ├── sidepanel/             # React UI for the whole run lifecycle
 ├── options/               # settings: the user's brakes
@@ -121,15 +121,21 @@ gesture rather than at install time. The content script is registered at runtime
 granted, and unregistered if it is revoked
 ([`src/background/content-registration.ts`](src/background/content-registration.ts)).
 
-`chrome.storage.local` holds settings, including the API key — it is never synced across profiles.
+`chrome.storage.local` holds settings and API keys the user chooses to remember; it is never synced
+across Chrome profiles. A profile can instead keep its key in `chrome.storage.session`, which clears
+when Chrome closes. Model requests go directly from the background worker to the profile's Base URL.
 
-## Wiring a real planner
+## AI connections
 
-[`src/background/planner.ts`](src/background/planner.ts) defines the `Planner` interface and ships a
-deterministic implementation so the full approve → run → gate → done path is exercisable without an
-API key. Replace `createPlanner` with a model-backed implementation. It must return steps whose
-`requiresApproval` flag is already set — the UI shows the gate in the plan, so a planner that leaves
-it off would break the product's central promise.
+Settings supports multiple named AI profiles with one explicit default. Every profile selects its
+wire contract, API root, model and optional API key. Model discovery is manual and never runs a
+generation. Custom HTTP endpoints are allowed with a warning; changing origins clears the key and
+requires the user to confirm the new data destination.
+
+[`src/background/planner.ts`](src/background/planner.ts) validates model-produced steps and applies
+the local gate policy itself. The model cannot remove confirmation from purchases, messages,
+deletions or other gated actions. [`src/background/llm-client.ts`](src/background/llm-client.ts)
+contains the three request/response adapters and keeps provider details out of the run controller.
 
 ## CI
 

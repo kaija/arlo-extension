@@ -6,6 +6,7 @@ type Listener = (
 ) => void;
 
 const store = new Map<string, unknown>();
+const sessionStore = new Map<string, unknown>();
 const listeners = new Set<Listener>();
 
 /** Just enough of the chrome API for the units under test. */
@@ -27,6 +28,18 @@ const chromeMock = {
         store.delete(key);
       }),
     },
+    session: {
+      get: vi.fn(async (key: string) => {
+        const value = sessionStore.get(key);
+        return value === undefined ? {} : { [key]: value };
+      }),
+      set: vi.fn(async (items: Record<string, unknown>) => {
+        for (const [key, value] of Object.entries(items)) sessionStore.set(key, value);
+      }),
+      remove: vi.fn(async (key: string) => {
+        sessionStore.delete(key);
+      }),
+    },
     onChanged: {
       addListener: (listener: Listener) => listeners.add(listener),
       removeListener: (listener: Listener) => listeners.delete(listener),
@@ -43,6 +56,7 @@ Object.assign(globalThis, { chrome: chromeMock });
 
 beforeEach(() => {
   store.clear();
+  sessionStore.clear();
   listeners.clear();
   vi.clearAllMocks();
 });

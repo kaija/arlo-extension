@@ -67,6 +67,16 @@ describe('run machine', () => {
     expect(state.plan?.steps.every((step) => step.status === 'pending')).toBe(true);
   });
 
+  it('ends a failed planning attempt without leaving the run stuck', () => {
+    const state = run([
+      { type: 'TASK_SUBMITTED', task },
+      { type: 'PLAN_FAILED', message: 'Model unavailable.', at: 50 },
+    ]);
+    expect(state.phase).toBe('failed');
+    expect(state.summary).toBe('Model unavailable.');
+    expect(state.endedAt).toBe(50);
+  });
+
   it('flags the irreversible step inside the plan, before anything runs', () => {
     const state = run([
       { type: 'TASK_SUBMITTED', task },

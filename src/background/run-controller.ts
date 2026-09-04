@@ -78,8 +78,17 @@ export async function submitTask(tabId: number, prompt: string): Promise<RunStat
     // Already injected, or a page we may not touch; readPage degrades gracefully.
   }
   const page = await readPage(tabId);
-  const plan = await createPlanner(settings).createPlan(prompt, page, task.id);
-  return dispatch(tabId, { type: 'PLAN_READY', plan });
+  try {
+    const plan = await createPlanner(settings).createPlan(prompt, page, task.id);
+    return dispatch(tabId, { type: 'PLAN_READY', plan });
+  } catch (cause) {
+    dispatch(tabId, {
+      type: 'PLAN_FAILED',
+      message: cause instanceof Error ? cause.message : 'Arlo could not create a plan.',
+      at: Date.now(),
+    });
+    throw cause;
+  }
 }
 
 export function approvePlan(tabId: number): RunState {

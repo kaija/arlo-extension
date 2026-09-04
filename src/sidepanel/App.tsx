@@ -1,6 +1,7 @@
 import { currentStep } from '../core/run-machine';
 import type { RunState } from '../core/types';
 import type { TabInfo } from '../shared/messages';
+import { contractLabel, type LlmProfileSummary } from '../shared/settings';
 import { Composer } from './components/Composer';
 import { GateCard } from './components/GateCard';
 import { NeedsHelpCard } from './components/NeedsHelpCard';
@@ -37,7 +38,25 @@ export function App() {
       <main className="app__body">
         {arlo.error ? (
           <div className="alert" role="alert">
-            <span>{arlo.error}</span>
+            <div className="alert__body">
+              <span>{arlo.error.message}</span>
+              {arlo.error.diagnostic ? (
+                <details className="alert__details">
+                  <summary>Technical details</summary>
+                  <span>{contractLabel(arlo.error.diagnostic.apiContract)}</span>
+                  <span>{arlo.error.diagnostic.endpoint}</span>
+                  {arlo.error.diagnostic.status ? (
+                    <span>HTTP {arlo.error.diagnostic.status}</span>
+                  ) : null}
+                  {arlo.error.diagnostic.requestId ? (
+                    <span>Request {arlo.error.diagnostic.requestId}</span>
+                  ) : null}
+                  {arlo.error.diagnostic.responseExcerpt ? (
+                    <span>{arlo.error.diagnostic.responseExcerpt}</span>
+                  ) : null}
+                </details>
+              ) : null}
+            </div>
             <button type="button" className="icon-button" onClick={arlo.dismissError}>
               Dismiss
             </button>
@@ -87,7 +106,48 @@ function RunThread({ arlo, state }: { arlo: Arlo; state: RunState }) {
 }
 
 function ComposerBlock({ arlo, tab }: { arlo: Arlo; tab: TabInfo | null }) {
-  return <Composer tab={tab} disabled={arlo.loading} onSubmit={(p) => void arlo.submit(p)} />;
+  if (!arlo.profile) return <ModelSetupNotice />;
+  return (
+    <>
+      <ProfileIndicator profile={arlo.profile} />
+      <Composer tab={tab} disabled={arlo.loading} onSubmit={(p) => void arlo.submit(p)} />
+    </>
+  );
+}
+
+function ProfileIndicator({ profile }: { profile: LlmProfileSummary }) {
+  return (
+    <button
+      type="button"
+      className="profile-indicator"
+      title={`Requests go directly to ${profile.origin}`}
+      onClick={() => chrome.runtime.openOptionsPage()}
+    >
+      <span>
+        <strong>{profile.name}</strong>
+        <span>{profile.model}</span>
+      </span>
+      <span aria-hidden="true">AI settings →</span>
+    </button>
+  );
+}
+
+function ModelSetupNotice() {
+  return (
+    <section className="panel">
+      <h1 className="panel__title">Connect an AI model to start</h1>
+      <p className="panel__lead">
+        Add an Anthropic or OpenAI-compatible profile and choose the default model Arlo should use.
+      </p>
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={() => chrome.runtime.openOptionsPage()}
+      >
+        Open AI settings
+      </button>
+    </section>
+  );
 }
 
 function RunView({ arlo }: { arlo: Arlo }) {
@@ -153,6 +213,23 @@ function RunView({ arlo }: { arlo: Arlo }) {
       return (
         <>
           <RunThread arlo={arlo} state={state} />
+          <ComposerBlock arlo={arlo} tab={tab} />
+        </>
+      );
+
+    case 'failed':
+      return (
+        <>
+          {state.task ? <TaskMessage prompt={state.task.prompt} /> : null}
+          <section className="card card--help">
+            <div className="card__header">
+              <h2 className="card__title">Couldn’t create a plan</h2>
+              <span className="badge badge--help">Failed</span>
+            </div>
+            <p className="card__note">
+              {state.summary ?? 'Check the AI connection and try again.'}
+            </p>
+          </section>
           <ComposerBlock arlo={arlo} tab={tab} />
         </>
       );
