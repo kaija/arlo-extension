@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:coverage
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Verify the built manifest
+        run: |
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            const manifest = JSON.parse(readFileSync('dist/manifest.json', 'utf8'));
+            const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+            if (manifest.manifest_version !== 3) throw new Error('expected MV3');
+            if (manifest.version !== pkg.version) throw new Error('manifest version drifted from package.json');
+            for (const file of [manifest.background.service_worker, manifest.side_panel.default_path, manifest.options_page, 'content.js']) {
+              readFileSync('dist/' + file);
+            }
+            console.log('manifest ok:', manifest.name, manifest.version);
+          "
+
+      - name: Package
+        run: node scripts/package.mjs
+
+      - name: Upload unpacked build
+        uses: actions/upload-artifact@v4
+        with:
+          name: arlo-extension-dist
+          path: dist/
+          retention-days: 14
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: arlo-extension-zip
+          path: release/*.zip
+          retention-days: 14
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7

@@ -1,0 +1,431 @@
+/*
+ * A deliberately plain baseline. The visual system for Arlo is designed
+ * separately (see design/arlo-sidepanel-design-prompt.md); these tokens exist so
+ * the states are distinguishable and the panel is legible in both themes.
+ */
+:root {
+  color-scheme: light dark;
+
+  --bg: #ffffff;
+  --bg-sunken: #f5f6f8;
+  --surface: #ffffff;
+  --border: #dfe2e8;
+  --text: #1b2333;
+  --text-muted: #5b6479;
+  --accent: #3355e6;
+  --accent-text: #ffffff;
+  --waiting: #b4690e;
+  --waiting-bg: #fdf3e3;
+  --danger: #b3261e;
+  --success: #1f7a4d;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --bg-sunken: #0f1116;
+    --surface: #1b1f27;
+    --border: #2c323d;
+    --text: #eef1f6;
+    --text-muted: #9aa3b5;
+    --accent: #7d97ff;
+    --accent-text: #10131a;
+    --waiting: #f0b45c;
+    --waiting-bg: #2e2415;
+    --danger: #ff8f86;
+    --success: #62d3a0;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 100%;
+  min-width: 320px;
+  background: var(--bg-sunken);
+  color: var(--text);
+  font:
+    14px/1.5 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.app__brand {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.app__header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.app__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* Blocks, not bubbles: everything is full width at 400px. */
+.card,
+.panel,
+.composer,
+.task-message,
+.alert {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.task-message {
+  border-left: 3px solid var(--accent);
+  background: var(--bg);
+}
+
+.task-message__label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.task-message__text,
+.panel__lead,
+.card__note,
+.run__status {
+  margin: 0;
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card__title,
+.panel__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.panel__subtitle {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card__note,
+.step__flag,
+.composer__context {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.card__toggle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card--gate {
+  border-color: var(--waiting);
+  background: var(--waiting-bg);
+}
+
+.card--help {
+  border-color: var(--danger);
+}
+
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--waiting,
+.badge--gate {
+  border-color: var(--waiting);
+  color: var(--waiting);
+}
+
+.badge--running {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge--done {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.badge--help,
+.badge--needs_help,
+.badge--stopped {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.steps {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.step__mark {
+  color: var(--text-muted);
+}
+
+.step--running .step__mark,
+.step--running .step__title {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.step--done .step__mark {
+  color: var(--success);
+}
+
+.step--failed .step__mark,
+.step--failed .step__status {
+  color: var(--danger);
+}
+
+.step--skipped {
+  opacity: 0.55;
+}
+
+.step__body {
+  min-width: 0;
+}
+
+.step__title {
+  margin: 0;
+}
+
+.step__index {
+  color: var(--text-muted);
+}
+
+.step__result,
+.step__error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.step__error {
+  color: var(--danger);
+}
+
+.step__flag {
+  margin: 2px 0 0;
+  color: var(--waiting);
+}
+
+.step__status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.gate__action {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--waiting);
+}
+
+.gate__detail {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.gate__consequence {
+  margin: 6px 0 0;
+}
+
+.gate__warning {
+  margin: 6px 0 0;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.help__message,
+.help__handoff {
+  margin: 6px 0 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actions--stacked {
+  flex-direction: column;
+}
+
+.button {
+  flex: 1 1 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.button--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.button--ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.icon-button {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.composer__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer__input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.composer .button {
+  margin-top: 8px;
+}
+
+.examples,
+.promises {
+  margin: 8px 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.promises strong {
+  color: var(--text);
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-color: var(--danger);
+  color: var(--danger);
+}
