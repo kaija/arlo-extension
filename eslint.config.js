@@ -26,4 +26,14 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // The theme boot script ships as-is to the browser, ahead of any bundle.
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        localStorage: 'readonly',
+      },
+    },
+  },
 );

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Logo } from '../design-system/icons';
 import { BRIDGE_HOST_PERMISSIONS } from '../manifest.config';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../shared/settings';
+import { THEME_PREFERENCES, themeLabel } from '../shared/theme';
 import { LlmProfiles } from './LlmProfiles';
 import { Alert, Field } from './controls';
 
@@ -159,6 +160,34 @@ export function Options() {
               </Field>
             </div>
           </details>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">Appearance</h2>
+              <p className="card-sub">
+                Applies to Settings and to the side panel, immediately. System follows whatever this
+                computer is set to.
+              </p>
+            </div>
+          </div>
+
+          <fieldset className="segmented">
+            <legend className="visually-hidden">Theme</legend>
+            {THEME_PREFERENCES.map((preference) => (
+              <label className="segmented__option" key={preference}>
+                <input
+                  type="radio"
+                  name="theme"
+                  value={preference}
+                  checked={settings.theme === preference}
+                  onChange={() => void update({ theme: preference })}
+                />
+                <span>{themeLabel(preference)}</span>
+              </label>
+            ))}
+          </fieldset>
         </section>
 
         {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}

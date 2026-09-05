@@ -1,3 +1,5 @@
+import { isThemePreference, type ThemePreference } from './theme';
+
 export const LLM_API_CONTRACTS = [
   'anthropic-messages',
   'openai-responses',
@@ -43,6 +45,8 @@ export interface Settings {
   bridgeUrl: string;
   /** The bearer token the bridge printed at startup. */
   bridgeToken: string;
+  /** Dark, light, or whatever the OS is set to. */
+  theme: ThemePreference;
   onboardingCompleted: boolean;
 }
 
@@ -62,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultLlmProfileId: null,
   bridgeUrl: 'http://127.0.0.1:4319',
   bridgeToken: '',
+  theme: 'system',
   onboardingCompleted: false,
 };
 
@@ -244,6 +249,7 @@ function normalizeSettings(value: unknown): Settings {
       typeof candidate.bridgeToken === 'string'
         ? candidate.bridgeToken
         : DEFAULT_SETTINGS.bridgeToken,
+    theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'
         ? candidate.onboardingCompleted

@@ -110,6 +110,13 @@ each explains itself in its own header: `tokens/fonts.css` self-hosts Inter rath
 from Google Fonts on every open, `theme-dark.css` carries the dark palette, and `ui-patches.css`
 fixes defects in `ui.css` (including one reproducible in the system's own component card).
 
+The palette follows the OS unless Settings says otherwise. The choice is stored as `theme`
+(`system` / `light` / `dark`) and applied as `data-arlo` on the document element — the switch
+`theme-dark.css` is already built around, so setting it themes both surfaces at once.
+`public/theme-boot.js` applies it before the first paint: an extension page cannot run an inline
+script, and `chrome.storage` is async, so the choice is mirrored into `localStorage` for that one
+job. `shared/theme.ts` owns both sides of that mirror.
+
 There are two entry points:
 
 | Import                     | Gives you                                                                                          | Used by      |
