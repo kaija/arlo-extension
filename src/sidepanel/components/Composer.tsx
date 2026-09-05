@@ -1,66 +1,54 @@
 import { useState } from 'react';
 
-import { suggestionsForHost } from '../../core/suggestions';
-import type { TabInfo } from '../../shared/messages';
+import { SendIcon } from '../../design-system/icons';
 
 interface ComposerProps {
-  tab: TabInfo | null;
-  disabled: boolean;
+  placeholder: string;
+  disabled?: boolean;
   onSubmit: (prompt: string) => void;
 }
 
-export function Composer({ tab, disabled, onSubmit }: ComposerProps) {
-  const [value, setValue] = useState('');
-  const { examples } = suggestionsForHost(tab?.host ?? '');
+/**
+ * Enter sends, Shift+Enter makes a new line. The field grows with its content
+ * (`field-sizing`), which is why the send button aligns to the bottom.
+ */
+export function Composer({ placeholder, disabled = false, onSubmit }: ComposerProps) {
+  const [text, setText] = useState('');
 
   const submit = () => {
-    const prompt = value.trim();
+    const prompt = text.trim();
     if (!prompt || disabled) return;
     onSubmit(prompt);
-    setValue('');
+    setText('');
   };
 
   return (
-    <section className="composer">
-      <p className="composer__context">
-        {tab?.host ? (
-          <>
-            On <strong>{tab.host}</strong>
-          </>
-        ) : (
-          'No active page'
-        )}
-      </p>
-
-      <ul className="composer__suggestions">
-        {examples.map((example) => (
-          <li key={example}>
-            <button type="button" className="chip" onClick={() => setValue(example)}>
-              {example}
-            </button>
-          </li>
-        ))}
-      </ul>
-
+    <div className="composer">
       <textarea
         className="composer__input"
-        rows={4}
-        placeholder="Tell Arlo what to do on this page…"
-        value={value}
+        rows={1}
+        placeholder={placeholder}
+        aria-label="What should Arlo do?"
+        value={text}
         disabled={disabled}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submit();
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            submit();
+          }
         }}
       />
       <button
         type="button"
-        className="button button--primary"
+        className="composer__send"
         onClick={submit}
-        disabled={disabled || !value.trim()}
+        disabled={disabled || !text.trim()}
+        title="Send"
       >
-        Start task
+        <SendIcon size={15} />
+        <span className="visually-hidden">Send</span>
       </button>
-    </section>
+    </div>
   );
 }

@@ -1,0 +1,84 @@
+/*
+ * Dark palette. The values are byte-faithful to the [data-arlo="dark"] block in
+ * the imported ArloPanel design.
+ *
+ * The design takes its theme as a prop; the panel takes it from the browser. It
+ * is applied in CSS rather than from React so the first paint is already dark —
+ * an extension page cannot run an inline script to beat the paint, and a white
+ * flash on every panel open is worse than one duplicated block.
+ *
+ * The two blocks below are the same declarations under different conditions:
+ *   1. the browser is in dark mode and nothing has forced light
+ *   2. something has explicitly asked for dark
+ * Keep them identical.
+ */
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-arlo='light']) {
+    color-scheme: dark;
+    --surface-page: #12121c;
+    --surface-card: #1a1a28;
+    --surface-sunken: #22222f;
+    --color-bg: #12121c;
+    --color-bg-secondary: #1a1a28;
+    --color-bg-tertiary: #22222f;
+    --text-body: #ecebf7;
+    --text-muted: #a3a2c2;
+    --text-faint: #76759a;
+    --color-text-primary: #ecebf7;
+    --color-text-secondary: #a3a2c2;
+    --color-text-tertiary: #76759a;
+    --color-border: rgba(255, 255, 255, 0.09);
+    --color-border-strong: rgba(255, 255, 255, 0.16);
+    --color-accent: #7b79e8;
+    --color-accent-hover: #8d8bf0;
+    --color-accent-light: rgba(123, 121, 232, 0.16);
+    --color-accent-glow: rgba(123, 121, 232, 0.28);
+    --color-success: #3fbd8b;
+    --color-success-light: rgba(63, 189, 139, 0.14);
+    --color-warning: #e0a13c;
+    --color-warning-light: rgba(224, 161, 60, 0.14);
+    --color-danger: #e8657d;
+    --color-danger-light: rgba(232, 101, 125, 0.14);
+  }
+}
+
+[data-arlo='dark'] {
+  color-scheme: dark;
+  --surface-page: #12121c;
+  --surface-card: #1a1a28;
+  --surface-sunken: #22222f;
+  --color-bg: #12121c;
+  --color-bg-secondary: #1a1a28;
+  --color-bg-tertiary: #22222f;
+  --text-body: #ecebf7;
+  --text-muted: #a3a2c2;
+  --text-faint: #76759a;
+  --color-text-primary: #ecebf7;
+  --color-text-secondary: #a3a2c2;
+  --color-text-tertiary: #76759a;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-accent: #7b79e8;
+  --color-accent-hover: #8d8bf0;
+  --color-accent-light: rgba(123, 121, 232, 0.16);
+  --color-accent-glow: rgba(123, 121, 232, 0.28);
+  --color-success: #3fbd8b;
+  --color-success-light: rgba(63, 189, 139, 0.14);
+  --color-warning: #e0a13c;
+  --color-warning-light: rgba(224, 161, 60, 0.14);
+  --color-danger: #e8657d;
+  --color-danger-light: rgba(232, 101, 125, 0.14);
+}
+
+/* Scrollbars, as in the design. */
+*::-webkit-scrollbar {
+  width: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}

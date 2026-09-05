@@ -1,0 +1,64 @@
+/* Canvas chrome for the fidelity board. Mirrors the design file's own canvas. */
+body {
+  background: #eeeef4;
+  overflow: auto;
+}
+.canvas {
+  padding: 56px 64px 80px;
+  min-width: max-content;
+}
+.canvas__title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #1a1a2e;
+}
+.canvas__lead {
+  margin: 0 0 40px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #64648c;
+}
+.row {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: none;
+}
+.board__label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.board__id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #1a1a2e;
+  color: #fff;
+}
+.board__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+.board__note {
+  font-size: 12px;
+  color: #8e8eaa;
+}
+.board__frame {
+  width: 400px;
+  height: 760px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(26, 26, 46, 0.13);
+  background: #fff;
+}

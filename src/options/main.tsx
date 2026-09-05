@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import '../sidepanel/styles.css';
 import { Options } from './Options';
 import './options.css';
 

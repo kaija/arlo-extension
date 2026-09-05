@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { CopyIcon, PlusIcon, TrashIcon } from '../design-system/icons';
 import { sendToBackground, type LlmDiagnostic } from '../shared/messages';
 import {
   LLM_API_CONTRACTS,
@@ -15,6 +16,7 @@ import {
   type LlmProfile,
   type Settings,
 } from '../shared/settings';
+import { Alert, Field, SelectWrap, Switch } from './controls';
 
 interface LlmProfilesProps {
   settings: Settings;
@@ -36,6 +38,14 @@ function safeOrigin(profile: Pick<LlmProfile, 'baseUrl'>): string | null {
     return null;
   }
 }
+
+/** Discovery status carries a state colour, so it maps onto the badge tones. */
+const DISCOVERY_TONE: Record<LlmProfile['discovery']['status'], string> = {
+  available: 'badge-success',
+  unavailable: 'badge-warning',
+  failed: 'badge-danger',
+  untested: 'badge-neutral',
+};
 
 function discoveryLabel(profile: LlmProfile): string {
   switch (profile.discovery.status) {
@@ -374,21 +384,22 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
   const alternatives = settings.llmProfiles.filter((profile) => profile.id !== deleteId);
 
   return (
-    <section className="card ai-connections">
-      <div className="section-heading">
+    <section className="card">
+      <div className="card-header">
         <div>
-          <h2 className="card__title">AI connections</h2>
-          <p className="card__note">
+          <h2 className="card-title">AI connections</h2>
+          <p className="card-sub">
             Arlo sends each task directly to the default profile. Profiles never switch
             automatically.
           </p>
         </div>
-        <button type="button" className="button button--compact" onClick={beginCreate}>
+        <button type="button" className="btn btn-sm btn-icon" onClick={beginCreate}>
+          <PlusIcon size={15} />
           Add profile
         </button>
       </div>
 
-      <div className="profile-layout">
+      <div className="profiles">
         <nav className="profile-list" aria-label="AI profiles">
           {settings.llmProfiles.length === 0 ? (
             <p className="empty-state">No profiles yet</p>
@@ -396,21 +407,19 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
             settings.llmProfiles.map((profile) => (
               <button
                 type="button"
-                className={`profile-row${profile.id === selectedId ? ' profile-row--selected' : ''}`}
                 key={profile.id}
+                className="profile-row"
+                aria-current={profile.id === selectedId}
                 onClick={() => openProfile(profile)}
               >
                 <span className="profile-row__top">
-                  <strong>{profile.name}</strong>
+                  <span className="profile-row__name">{profile.name}</span>
                   {profile.id === settings.defaultLlmProfileId ? (
-                    <span className="badge badge--running">Default</span>
+                    <span className="badge">Default</span>
                   ) : null}
                 </span>
-                <span>{contractLabel(profile.apiContract)}</span>
-                <span>{profile.model || 'No model selected'}</span>
-                <span className={`status status--${profile.discovery.status}`}>
-                  {discoveryLabel(profile)}
-                </span>
+                <span className="profile-row__meta">{contractLabel(profile.apiContract)}</span>
+                <span className="profile-row__meta">{profile.model || 'No model selected'}</span>
               </button>
             ))
           )}
@@ -418,69 +427,80 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
 
         <div className="profile-editor">
           {choosingContract ? (
-            <div className="contract-picker">
-              <h3>Choose an API contract</h3>
-              <p className="card__note">The request and authentication format stays explicit.</p>
-              {LLM_API_CONTRACTS.map((contract) => (
-                <button
-                  key={contract}
-                  type="button"
-                  className="contract-option"
-                  onClick={() => chooseContract(contract)}
-                >
-                  <strong>{contractLabel(contract)}</strong>
-                  <span>
-                    {contract === 'anthropic-messages'
-                      ? 'Native Claude Messages API'
-                      : contract === 'openai-responses'
-                        ? 'OpenAI Responses API and compatible gateways'
-                        : 'OpenAI Chat Completions and compatible gateways'}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <>
+              <div>
+                <h3 className="card-title">Choose an API contract</h3>
+                <p className="card-sub">The request and authentication format stays explicit.</p>
+              </div>
+              <div className="form-stack-sm">
+                {LLM_API_CONTRACTS.map((contract) => (
+                  <button
+                    key={contract}
+                    type="button"
+                    className="contract-option"
+                    onClick={() => chooseContract(contract)}
+                  >
+                    <strong>{contractLabel(contract)}</strong>
+                    <span>
+                      {contract === 'anthropic-messages'
+                        ? 'Native Claude Messages API'
+                        : contract === 'openai-responses'
+                          ? 'OpenAI Responses API and compatible gateways'
+                          : 'OpenAI Chat Completions and compatible gateways'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
           ) : draft ? (
             <>
-              <div className="editor-heading">
-                <div>
+              <div className="editor-head">
+                <div className="form-stack-sm">
                   <h3>{original ? draft.name || 'Untitled profile' : 'New profile'}</h3>
-                  <span className={`status status--${draft.discovery.status}`}>
-                    {discoveryLabel(draft)}
-                  </span>
+                  <div className="row">
+                    <span className={`badge ${DISCOVERY_TONE[draft.discovery.status]}`}>
+                      {discoveryLabel(draft)}
+                    </span>
+                    {draft.id === settings.defaultLlmProfileId ? (
+                      <span className="badge">Default</span>
+                    ) : null}
+                  </div>
                 </div>
-                {dirty ? <span className="unsaved">Unsaved changes</span> : null}
+                {dirty ? <span className="badge badge-warning">Unsaved changes</span> : null}
               </div>
 
-              <div className="field-grid">
-                <div className="field field--full">
-                  <label htmlFor="profile-name">Profile name</label>
+              <div className="form-stack">
+                <Field id="profile-name" label="Profile name">
                   <input
                     id="profile-name"
+                    className="input"
                     type="text"
                     value={draft.name}
                     onChange={(event) => setDraft({ ...draft, name: event.target.value })}
                   />
-                </div>
+                </Field>
 
-                <div className="field field--full">
-                  <label htmlFor="api-contract">API contract</label>
-                  <select
-                    id="api-contract"
-                    value={draft.apiContract}
-                    onChange={(event) => changeContract(event.target.value as LlmApiContract)}
-                  >
-                    {LLM_API_CONTRACTS.map((contract) => (
-                      <option key={contract} value={contract}>
-                        {contractLabel(contract)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Field id="api-contract" label="API contract">
+                  <SelectWrap>
+                    <select
+                      id="api-contract"
+                      className="input select"
+                      value={draft.apiContract}
+                      onChange={(event) => changeContract(event.target.value as LlmApiContract)}
+                    >
+                      {LLM_API_CONTRACTS.map((contract) => (
+                        <option key={contract} value={contract}>
+                          {contractLabel(contract)}
+                        </option>
+                      ))}
+                    </select>
+                  </SelectWrap>
+                </Field>
 
-                <div className="field field--full">
-                  <label htmlFor="base-url">Base URL</label>
+                <Field id="base-url" label="Base URL">
                   <input
                     id="base-url"
+                    className="input"
                     type="url"
                     spellCheck={false}
                     value={draft.baseUrl}
@@ -494,16 +514,19 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     }
                     onBlur={normalizeAndProtectOrigin}
                   />
-                  <small>
-                    Request endpoint: <code>{endpointPreview}</code>
-                  </small>
-                </div>
+                  <p className="field-hint">Requests go to</p>
+                  <span className="pill pill-endpoint">{endpointPreview}</span>
+                </Field>
 
-                <div className="field field--full">
-                  <label htmlFor="api-key">API key</label>
-                  <div className="input-with-actions">
+                <Field
+                  id="api-key"
+                  label="API key"
+                  hint="Turn remembering off to keep the key only until Chrome closes. Arlo does not encrypt remembered keys."
+                >
+                  <div className="row">
                     <input
                       id="api-key"
+                      className="input grow"
                       type={keyVisible ? 'text' : 'password'}
                       autoComplete="off"
                       spellCheck={false}
@@ -520,7 +543,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     />
                     <button
                       type="button"
-                      className="button button--compact"
+                      className="btn btn-sm"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setKeyVisible((visible) => !visible)}
                     >
@@ -528,74 +551,75 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     </button>
                     <button
                       type="button"
-                      className="button button--compact"
+                      className="btn btn-sm"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setDraft({ ...draft, apiKey: '' })}
                     >
                       Clear
                     </button>
                   </div>
-                  <label className="switch switch--subtle">
-                    <input
-                      type="checkbox"
-                      checked={draft.rememberApiKey}
-                      onChange={(event) =>
-                        setDraft({ ...draft, rememberApiKey: event.target.checked })
-                      }
-                    />
-                    Remember key in this Chrome profile
-                  </label>
-                  <small>
-                    Turn this off to keep the key only until Chrome closes. Arlo does not encrypt
-                    remembered keys.
-                  </small>
-                </div>
+                  <Switch
+                    checked={draft.rememberApiKey}
+                    label="Remember key in this Chrome profile"
+                    onChange={(rememberApiKey) => setDraft({ ...draft, rememberApiKey })}
+                  />
+                </Field>
 
-                <div className="field field--full">
-                  <label htmlFor="model">Model</label>
-                  <div className="input-with-actions">
+                <Field
+                  id="model"
+                  label="Model"
+                  hint="Pick a discovered model or type any model ID. Refresh only checks the model-list endpoint; it does not run a generation."
+                >
+                  <div className="row">
                     <input
                       id="model"
+                      className="input grow"
                       type="text"
-                      list={`models-${draft.id}`}
                       spellCheck={false}
                       value={draft.model}
                       onChange={(event) => setDraft({ ...draft, model: event.target.value })}
                     />
-                    <datalist id={`models-${draft.id}`}>
-                      {draft.modelIds.map((model) => (
-                        <option value={model} key={model} />
-                      ))}
-                    </datalist>
                     <button
                       type="button"
-                      className="button button--compact"
+                      className="btn btn-sm btn-icon"
                       disabled={busy}
                       onClick={() => void refreshModels()}
                     >
+                      {busy ? <span className="spinner spinner-sm" /> : null}
                       {busy ? 'Checking…' : 'Refresh models'}
                     </button>
                   </div>
-                  <small>
-                    Enter any model ID manually. Refresh only checks the model-list endpoint; it
-                    does not run a generation.
-                  </small>
-                </div>
+                  {draft.modelIds.length > 0 ? (
+                    <SelectWrap>
+                      <select
+                        className="input select input-sm"
+                        aria-label="Discovered models"
+                        value={draft.modelIds.includes(draft.model) ? draft.model : ''}
+                        onChange={(event) => setDraft({ ...draft, model: event.target.value })}
+                      >
+                        <option value="" disabled>
+                          {`Choose from ${draft.modelIds.length} discovered ${
+                            draft.modelIds.length === 1 ? 'model' : 'models'
+                          }…`}
+                        </option>
+                        {draft.modelIds.map((model) => (
+                          <option value={model} key={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                    </SelectWrap>
+                  ) : null}
+                </Field>
               </div>
 
-              <div className="privacy-note">
-                <strong>Data destination</strong>
-                <span>
-                  Task instructions and relevant page content go directly to{' '}
-                  {safeOrigin(draft) ?? 'the configured origin'}.
-                </span>
-              </div>
+              <Alert tone="info" title="Data destination">
+                Task instructions and relevant page content go directly to{' '}
+                {safeOrigin(draft) ?? 'the configured origin'}.
+              </Alert>
 
-              {notice ? (
-                <div className="inline-notice" role="status">
-                  {notice}
-                </div>
-              ) : null}
+              {notice ? <Alert tone="warning">{notice}</Alert> : null}
+
               {diagnostic ? (
                 <details className="diagnostic">
                   <summary>Technical details</summary>
@@ -627,68 +651,74 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
               ) : null}
 
               {deleteId ? (
-                <div className="delete-confirmation" role="alert">
-                  <strong>Delete {draft.name}?</strong>
-                  {settings.defaultLlmProfileId === deleteId && alternatives.length > 0 ? (
-                    <div className="field">
-                      <label htmlFor="replacement-profile">New default profile</label>
-                      <select
-                        id="replacement-profile"
-                        value={replacementId}
-                        onChange={(event) => setReplacementId(event.target.value)}
+                <Alert tone="danger" title={`Delete ${draft.name}?`}>
+                  <div className="form-stack">
+                    {settings.defaultLlmProfileId === deleteId && alternatives.length > 0 ? (
+                      <Field id="replacement-profile" label="New default profile">
+                        <SelectWrap>
+                          <select
+                            id="replacement-profile"
+                            className="input select"
+                            value={replacementId}
+                            onChange={(event) => setReplacementId(event.target.value)}
+                          >
+                            {alternatives.map((profile) => (
+                              <option value={profile.id} key={profile.id}>
+                                {profile.name}
+                              </option>
+                            ))}
+                          </select>
+                        </SelectWrap>
+                      </Field>
+                    ) : alternatives.length === 0 ? (
+                      <p>Task submission will be blocked until you create another profile.</p>
+                    ) : null}
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-icon"
+                        disabled={busy}
+                        onClick={() => void confirmDelete()}
                       >
-                        {alternatives.map((profile) => (
-                          <option value={profile.id} key={profile.id}>
-                            {profile.name}
-                          </option>
-                        ))}
-                      </select>
+                        <TrashIcon size={16} />
+                        Delete profile
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setDeleteId(null)}
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  ) : alternatives.length === 0 ? (
-                    <p>Task submission will be blocked until you create another profile.</p>
-                  ) : null}
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className="button button--danger"
-                      disabled={busy}
-                      onClick={() => void confirmDelete()}
-                    >
-                      Delete profile
-                    </button>
-                    <button type="button" className="button" onClick={() => setDeleteId(null)}>
-                      Cancel
-                    </button>
                   </div>
-                </div>
+                </Alert>
               ) : (
-                <div className="editor-actions">
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className="button button--primary"
-                      disabled={!dirty || busy}
-                      onClick={() => void saveProfile()}
-                    >
-                      Save profile
-                    </button>
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={!dirty || busy}
-                      onClick={() => {
-                        if (original) openProfile(original);
-                        else beginCreate();
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  <div className="actions actions--secondary">
+                <div className="card-footer editor-footer">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!dirty || busy}
+                    onClick={() => void saveProfile()}
+                  >
+                    Save profile
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={!dirty || busy}
+                    onClick={() => {
+                      if (original) openProfile(original);
+                      else beginCreate();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <div className="row row-end grow">
                     {draft.id !== settings.defaultLlmProfileId ? (
                       <button
                         type="button"
-                        className="button button--compact"
+                        className="btn btn-sm"
                         disabled={!original || busy}
                         onClick={() => void makeDefault()}
                       >
@@ -697,18 +727,20 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     ) : null}
                     <button
                       type="button"
-                      className="button button--compact"
+                      className="btn btn-sm btn-icon"
                       disabled={!original || dirty || busy}
                       onClick={duplicateProfile}
                     >
+                      <CopyIcon size={15} />
                       Duplicate
                     </button>
                     <button
                       type="button"
-                      className="button button--compact button--danger"
+                      className="btn btn-sm btn-danger btn-icon"
                       disabled={!original || busy}
                       onClick={beginDelete}
                     >
+                      <TrashIcon size={15} />
                       Delete
                     </button>
                   </div>

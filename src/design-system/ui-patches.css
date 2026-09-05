@@ -1,0 +1,65 @@
+/*
+ * Corrections to css/ui.css. That file is vendored verbatim, so nothing here is
+ * edited into it — fixes live in this layer and are removed when they land
+ * upstream. Every rule below names the defect it works around.
+ */
+
+/* ------------------------------------------------------- upstream bugs -- */
+
+/*
+ * .switch-track is not a flex container, so the knob — a <span> in the system's
+ * own Switch.jsx — stays display:inline and its 18x18 is ignored. The knob
+ * renders 0x0 and the switch reads as a plain filled pill with no thumb. This
+ * reproduces in the design system's own components/forms/forms.card.html.
+ */
+.switch-knob {
+  display: block;
+}
+
+/* ---------------------------------------------- dark-mode corrections -- */
+
+/*
+ * The system is light-first ("white page"), so a few rules in ui.css hardcode a
+ * light value rather than a token. Only the ones actually broken on a dark
+ * ground are listed.
+ */
+
+/* A black-alpha hover border is invisible on a dark surface. */
+[data-arlo='dark'] .input:hover:not(:disabled):not(:focus) {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/*
+ * The tooltip paints white text on --color-text-primary, which inverts to a
+ * near-white in dark mode. Swap the ground for the page's darkest surface.
+ */
+[data-arlo='dark'] .tooltip {
+  color: var(--text-body);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-strong);
+}
+[data-arlo='dark'] .tooltip::after {
+  border-top-color: var(--color-bg-tertiary);
+}
+[data-arlo='dark'] .tooltip-bottom::after {
+  border-top-color: transparent;
+  border-bottom-color: var(--color-bg-tertiary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-arlo='light']) .input:hover:not(:disabled):not(:focus) {
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+  :root:not([data-arlo='light']) .tooltip {
+    color: var(--text-body);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-strong);
+  }
+  :root:not([data-arlo='light']) .tooltip::after {
+    border-top-color: var(--color-bg-tertiary);
+  }
+  :root:not([data-arlo='light']) .tooltip-bottom::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--color-bg-tertiary);
+  }
+}

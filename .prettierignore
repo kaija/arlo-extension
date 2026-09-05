@@ -4,3 +4,12 @@ coverage/
 node_modules/
 public/icons/
 design/
+
+# Vendored verbatim from the Arlo design system (see src/design-system/index.css).
+# Formatting these would put them out of sync with the source project.
+src/design-system/tokens/colors.css
+src/design-system/tokens/typography.css
+src/design-system/tokens/effects.css
+src/design-system/base.css
+src/design-system/components.css
+src/design-system/ui.css

@@ -38,3 +38,41 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   sign_in: 'Sign in',
   change_settings: 'Change account settings',
 };
+
+/**
+ * What a gated step will do, phrased so it can be dropped into a sentence:
+ * "Waiting for your OK before it places the order".
+ */
+export const GATE_VERBS: Record<ActionKind, string> = {
+  read: 'continues',
+  scroll: 'continues',
+  click: 'makes the click',
+  type: 'types that in',
+  navigate: 'leaves this page',
+  open_tab: 'opens a tab',
+  submit_form: 'submits the form',
+  purchase: 'places the order',
+  send_message: 'sends the message',
+  delete: 'deletes it',
+  sign_in: 'signs in',
+  change_settings: 'changes the settings',
+};
+
+/**
+ * The Gate's primary button names the consequence rather than saying "Approve",
+ * so a mis-click cannot be a mis-read.
+ */
+export const GATE_APPROVE_LABELS: Record<ActionKind, string> = {
+  read: 'Approve and continue',
+  scroll: 'Approve and continue',
+  click: 'Approve — make the click',
+  type: 'Approve — type it in',
+  navigate: 'Approve — leave this page',
+  open_tab: 'Approve — open the tab',
+  submit_form: 'Approve — submit the form',
+  purchase: 'Approve — place the order',
+  send_message: 'Approve — send the message',
+  delete: 'Approve — delete it',
+  sign_in: 'Approve — sign in',
+  change_settings: 'Approve — change the settings',
+};

@@ -1,0 +1,12 @@
+/*
+ * The full design system: foundation plus the component classes.
+ *
+ * The side panel imports index.css alone, because it draws its own components
+ * to a bespoke 400px spec. Full-page surfaces — the options page — import this
+ * instead and get the system's own .btn / .card / .field / .input / .switch /
+ * .badge / .alert / .table vocabulary.
+ */
+@import './index.css';
+@import './components.css';
+@import './ui.css';
+@import './ui-patches.css';

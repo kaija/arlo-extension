@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
-import { currentStep, progressLabel } from '../../core/run-machine';
 import type { RunState } from '../../core/types';
+import { runCountLabel, runLine, runPercent, runToneColor } from '../run-presentation';
+import { ChevronIcon } from '../../design-system/icons';
 import { StepList } from './StepList';
 
 interface RunCardProps {
@@ -9,76 +10,86 @@ interface RunCardProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  onNewTask: () => void;
 }
 
-const BADGES: Partial<Record<RunState['phase'], string>> = {
-  running: 'Running',
-  paused: 'Paused',
-  gated: 'Waiting for you',
-  done: 'Done',
-  stopped: 'Stopped',
-  needs_help: 'Over to you',
-};
-
 /**
- * The collapsed form is the normal state in a long thread: task, progress and
- * what it is doing right now, without expanding.
+ * Collapsed is the normal state in a long thread: the dot, the count and one
+ * line say where the run is. Expanding is for when that line is not enough.
  */
-export function RunCard({ state, onPause, onResume, onStop, onNewTask }: RunCardProps) {
-  const finished = state.phase === 'done' || state.phase === 'stopped';
-  const [expanded, setExpanded] = useState(!finished);
-  const step = currentStep(state);
+/**
+ * Open by default while there is something to watch; closed once the run has an
+ * outcome, where the one-line result is the point. The card is keyed on the
+ * phase by its caller, so entering a gate or a hand-off reopens it — a decision
+ * is never asked for behind a collapsed card.
+ */
+function opensBy(phase: RunState['phase']): boolean {
+  return phase !== 'done' && phase !== 'stopped' && phase !== 'failed';
+}
+
+export function RunCard({ state, onPause, onResume, onStop }: RunCardProps) {
+  const { phase } = state;
+  const [expanded, setExpanded] = useState(() => opensBy(phase));
+
   if (!state.plan || !state.task) return null;
 
+  const showControls = phase === 'running' || phase === 'paused';
+
   return (
-    <section className={`card card--run card--${state.phase}`}>
-      <header className="card__header">
-        <button
-          type="button"
-          className="card__toggle"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((open) => !open)}
-        >
-          {expanded ? '▾' : '▸'} {state.task.prompt}
-        </button>
-        <span className={`badge badge--${state.phase}`}>{BADGES[state.phase] ?? state.phase}</span>
-      </header>
+    <section
+      className={`panel-card run run--${phase}`}
+      style={{ ['--run-accent' as string]: runToneColor(state) }}
+    >
+      <button
+        type="button"
+        className="run__toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span className="run__dot" aria-hidden="true" />
+        <span className="run__summary">
+          <span className="run__heading">
+            <span className="run__task">{state.task.prompt}</span>
+            <span className="run__count">{runCountLabel(state)}</span>
+          </span>
+          <span className="run__line">{runLine(state)}</span>
+        </span>
+        <ChevronIcon className="run__chevron" />
+      </button>
 
-      <p className="run__status">
-        {finished ? (
-          (state.summary ?? 'Run ended.')
-        ) : (
-          <>
-            <span className="run__progress">{progressLabel(state)}</span>
-            {step ? ` — ${step.title}` : null}
-          </>
-        )}
-      </p>
+      <div className="run__progress" aria-hidden="true">
+        <span style={{ width: `${runPercent(state)}%` }} />
+      </div>
 
-      {expanded ? <StepList steps={state.plan.steps} /> : null}
+      {expanded ? <StepList state={state} /> : null}
 
-      <div className="actions">
-        {state.phase === 'running' ? (
-          <button type="button" className="button" onClick={onPause}>
-            Pause
-          </button>
-        ) : null}
-        {state.phase === 'paused' ? (
-          <button type="button" className="button button--primary" onClick={onResume}>
-            Resume
-          </button>
-        ) : null}
-        {!finished ? (
-          <button type="button" className="button button--danger" onClick={onStop}>
+      {showControls ? (
+        <div className="run__controls">
+          {phase === 'paused' ? (
+            <button
+              type="button"
+              className="panel-btn panel-btn--xs panel-btn--secondary panel-btn--grow"
+              onClick={onResume}
+            >
+              Resume
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="panel-btn panel-btn--xs panel-btn--secondary panel-btn--grow"
+              onClick={onPause}
+            >
+              Pause
+            </button>
+          )}
+          <button
+            type="button"
+            className="panel-btn panel-btn--xs panel-btn--danger panel-btn--grow"
+            onClick={onStop}
+          >
             Stop
           </button>
-        ) : (
-          <button type="button" className="button button--primary" onClick={onNewTask}>
-            New task
-          </button>
-        )}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

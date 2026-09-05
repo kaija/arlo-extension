@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 /**
- * Writes placeholder PNG icons with no image dependencies — zlib and a CRC are
- * all a valid PNG needs. Replace public/icons/* with the real artwork when the
- * visual design lands; this only exists so the extension loads.
+ * Draws the Arlo brand mark into public/icons/*.png.
+ *
+ * The geometry is the design system's assets/arlo-mark.svg, transcribed exactly:
+ * a 28x28 rounded square (rx 7) in --color-accent, with the "A" drawn as three
+ * round-capped 2.5-unit strokes rather than set in type.
+ *
+ * No image dependencies: zlib and a CRC are all a valid PNG needs. The shapes
+ * are signed distances, supersampled, so the 16px toolbar icon has clean edges.
  */
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -10,6 +15,10 @@ import { resolve } from 'node:path';
 
 const SIZES = [16, 32, 48, 128];
 const OUT_DIR = resolve(process.cwd(), 'public/icons');
+
+/** --color-accent, from the design system's tokens/colors.css. */
+const ACCENT = [0x58, 0x56, 0xd6];
+const SAMPLES = 4;
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -32,6 +41,41 @@ function chunk(type, data) {
   return Buffer.concat([length, body, crc]);
 }
 
+/** Distance from p to the segment ab, negative inside a stroke of that radius. */
+function segmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const length2 = dx * dx + dy * dy;
+  const t =
+    length2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/**
+ * The mark, in the SVG's own 28-unit space:
+ *   <rect width=28 height=28 rx=7 fill=#5856D6>
+ *   <path d="M8 20L14 8L20 20" stroke-width=2.5 round>
+ *   <path d="M10.6 15.4H17.4"  stroke-width=2.5 round>
+ */
+const UNITS = 28;
+const STROKE = 2.5 / 2;
+
+function coverage(u, v) {
+  const x = u * UNITS;
+  const y = v * UNITS;
+
+  // Rounded square: rx 7 of 28.
+  const r = 7;
+  const qx = Math.abs(x - 14) - (14 - r);
+  const qy = Math.abs(y - 14) - (14 - r);
+  const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+  if (outside > 0) return null;
+
+  const legs = Math.min(segmentDistance(x, y, 8, 20, 14, 8), segmentDistance(x, y, 14, 8, 20, 20));
+  const bar = segmentDistance(x, y, 10.6, 15.4, 17.4, 15.4);
+  return Math.min(legs, bar) - STROKE < 0 ? 'glyph' : 'field';
+}
+
 function png(size) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
@@ -39,19 +83,33 @@ function png(size) {
   ihdr[8] = 8; // bit depth
   ihdr[9] = 6; // RGBA
 
-  const radius = size * 0.18;
   const rows = [];
   for (let y = 0; y < size; y += 1) {
     const row = Buffer.alloc(1 + size * 4); // leading filter byte 0
     for (let x = 0; x < size; x += 1) {
-      const inset = Math.min(x, y, size - 1 - x, size - 1 - y) < radius * 0.35 ? 0 : 1; // rounded corners
-      const glyph = Math.abs(x - size / 2) + Math.abs(y - size / 2) < size * 0.28;
+      let covered = 0;
+      let glyph = 0;
+      for (let sy = 0; sy < SAMPLES; sy += 1) {
+        for (let sx = 0; sx < SAMPLES; sx += 1) {
+          const hit = coverage(
+            (x + (sx + 0.5) / SAMPLES) / size,
+            (y + (sy + 0.5) / SAMPLES) / size,
+          );
+          if (hit === null) continue;
+          covered += 1;
+          if (hit === 'glyph') glyph += 1;
+        }
+      }
+
+      const total = SAMPLES * SAMPLES;
       const offset = 1 + x * 4;
-      const [r, g, b] = glyph ? [255, 255, 255] : [51, 85, 230];
-      row[offset] = r;
-      row[offset + 1] = g;
-      row[offset + 2] = b;
-      row[offset + 3] = inset ? 255 : 0;
+      if (covered === 0) continue; // transparent, already zeroed
+      // Blend the white glyph over the accent field, then apply shape coverage.
+      const mix = glyph / covered;
+      row[offset] = Math.round(ACCENT[0] + (255 - ACCENT[0]) * mix);
+      row[offset + 1] = Math.round(ACCENT[1] + (255 - ACCENT[1]) * mix);
+      row[offset + 2] = Math.round(ACCENT[2] + (255 - ACCENT[2]) * mix);
+      row[offset + 3] = Math.round((covered / total) * 255);
     }
     rows.push(row);
   }

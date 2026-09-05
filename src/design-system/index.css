@@ -1,0 +1,24 @@
+/*
+ * The Arlo design system, vendored from the `arlo-design` skill
+ * (DESIGN.md, tokens/, css/ — the same system published to Claude Design as
+ * `arlo-ai-design-system-6316a602-9c76-4ace-a739-fcff8b15ffa7`).
+ *
+ * tokens/colors.css, tokens/typography.css, tokens/effects.css, base.css,
+ * components.css and ui.css are byte-for-byte copies of the upstream files —
+ * the design-system contract. Re-copy them to update; never hand-edit, and note
+ * that .prettierignore keeps the formatter off them for the same reason.
+ *
+ * Three files are local: tokens/fonts.css self-hosts Inter instead of pulling it
+ * from Google Fonts, theme-dark.css carries the dark palette, and ui-patches.css
+ * corrects defects in ui.css. Each says why in its own header.
+ *
+ * This entry point is the foundation only. Full-page surfaces want ui-kit.css,
+ * which adds the system's component classes on top.
+ */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/effects.css';
+@import './base.css';
+@import './theme-dark.css';
+@import './motion.css';

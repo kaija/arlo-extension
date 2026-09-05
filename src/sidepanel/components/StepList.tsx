@@ -1,35 +1,39 @@
-import { ACTION_LABELS } from '../../core/gate-policy';
-import type { PlanStep } from '../../core/types';
+import type { RunState } from '../../core/types';
+import { stepMark, stepTone } from '../run-presentation';
 
-const STATUS_MARK: Record<PlanStep['status'], string> = {
-  pending: '○',
-  running: '◐',
-  done: '●',
-  failed: '✕',
-  skipped: '–',
-};
+/**
+ * The expanded run list. Four states are visible at once by design — what is
+ * done, what is happening, what will stop for a decision, and what is still
+ * ahead — so the user can judge whether to intervene without scrolling.
+ */
+export function StepList({ state }: { state: RunState }) {
+  const steps = state.plan?.steps ?? [];
 
-export function StepList({ steps }: { steps: PlanStep[] }) {
   return (
     <ol className="steps">
-      {steps.map((step, index) => (
-        <li key={step.id} className={`step step--${step.status}`}>
-          <span className="step__mark" aria-hidden="true">
-            {STATUS_MARK[step.status]}
-          </span>
-          <div className="step__body">
-            <p className="step__title">
-              <span className="step__index">{index + 1}.</span> {step.title}
-            </p>
-            {step.requiresApproval && step.status === 'pending' ? (
-              <p className="step__flag">Needs your confirmation — {ACTION_LABELS[step.action]}</p>
-            ) : null}
-            {step.result ? <p className="step__result">{step.result}</p> : null}
-            {step.error ? <p className="step__error">{step.error}</p> : null}
-          </div>
-          <span className="step__status">{step.status}</span>
-        </li>
-      ))}
+      {steps.map((step, index) => {
+        const tone = stepTone(state, index);
+        return (
+          <li className={`step step--${tone}`} key={step.id}>
+            <span className="step__mark" aria-hidden="true">
+              {stepMark(tone, index)}
+            </span>
+            <div className="step__body">
+              <p className="step__title">{step.title}</p>
+              {tone === 'done' && step.result ? (
+                <p className="step__result">{step.result}</p>
+              ) : null}
+              {step.error ? <p className="step__error">{step.error}</p> : null}
+              {step.requiresApproval && tone !== 'done' && tone !== 'skipped' ? (
+                <span className="step__flag">
+                  {tone === 'gate' ? 'Needs your OK now' : 'Will stop for your OK'}
+                </span>
+              ) : null}
+            </div>
+            <span className="visually-hidden">{tone}</span>
+          </li>
+        );
+      })}
     </ol>
   );
 }

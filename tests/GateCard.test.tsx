@@ -25,7 +25,9 @@ describe('GateCard', () => {
   it('offers approve, skip and stop — and nothing that continues on its own', () => {
     render(<GateCard step={step} onApprove={vi.fn()} onSkip={vi.fn()} onStop={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
+    // The primary button names the consequence rather than saying "Approve",
+    // so a mis-click cannot be a mis-read.
+    expect(screen.getByRole('button', { name: 'Approve — place the order' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Skip this step' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Stop task' })).toBeDefined();
     expect(screen.getByText(/waits here until you decide/i)).toBeDefined();

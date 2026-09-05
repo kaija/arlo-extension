@@ -1,178 +1,165 @@
+import { useEffect, useRef } from 'react';
+
 import { currentStep } from '../core/run-machine';
 import type { RunState } from '../core/types';
-import type { TabInfo } from '../shared/messages';
-import { contractLabel, type LlmProfileSummary } from '../shared/settings';
+import { contractLabel } from '../shared/settings';
 import { Composer } from './components/Composer';
+import { Dock } from './components/Dock';
 import { GateCard } from './components/GateCard';
+import { IdleScreen } from './components/IdleScreen';
 import { NeedsHelpCard } from './components/NeedsHelpCard';
-import { Onboarding } from './components/Onboarding';
+import { BlockedScreen, ModelSetupScreen, Onboarding } from './components/Onboarding';
+import { DoneOutcome, FailedNotice, StoppedNotice } from './components/Outcomes';
+import { PanelHeader } from './components/PanelHeader';
 import { PlanCard, TaskMessage } from './components/PlanCard';
+import { PlanningCard } from './components/PlanningCard';
 import { RunCard } from './components/RunCard';
+import { CloseIcon, WarningIcon } from '../design-system/icons';
 import { useArlo, type Arlo } from './useArlo';
 
 export function App() {
   const arlo = useArlo();
 
   return (
-    <div className="app">
-      <header className="app__header">
-        <span className="app__brand">Arlo</span>
-        <div className="app__header-actions">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => void arlo.send({ type: 'run:reset' })}
-          >
-            + New
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => chrome.runtime.openOptionsPage()}
-          >
-            Settings
-          </button>
-        </div>
-      </header>
+    <div className="panel">
+      <PanelHeader
+        onNewTask={() => void arlo.send({ type: 'run:reset' })}
+        onOpenSettings={() => chrome.runtime.openOptionsPage()}
+      />
 
-      <main className="app__body">
-        {arlo.error ? (
-          <div className="alert" role="alert">
-            <div className="alert__body">
-              <span>{arlo.error.message}</span>
-              {arlo.error.diagnostic ? (
-                <details className="alert__details">
-                  <summary>Technical details</summary>
-                  <span>{contractLabel(arlo.error.diagnostic.apiContract)}</span>
-                  <span>{arlo.error.diagnostic.endpoint}</span>
-                  {arlo.error.diagnostic.status ? (
-                    <span>HTTP {arlo.error.diagnostic.status}</span>
-                  ) : null}
-                  {arlo.error.diagnostic.requestId ? (
-                    <span>Request {arlo.error.diagnostic.requestId}</span>
-                  ) : null}
-                  {arlo.error.diagnostic.responseExcerpt ? (
-                    <span>{arlo.error.diagnostic.responseExcerpt}</span>
-                  ) : null}
-                </details>
-              ) : null}
-            </div>
-            <button type="button" className="icon-button" onClick={arlo.dismissError}>
-              Dismiss
-            </button>
-          </div>
-        ) : null}
+      {arlo.error ? <ErrorAlert arlo={arlo} /> : null}
 
-        {!arlo.granted ? (
-          <Onboarding onAllow={() => void arlo.requestSiteAccess()} />
-        ) : arlo.tab?.blocked ? (
-          <BlockedNotice />
-        ) : (
-          <RunView arlo={arlo} />
-        )}
-      </main>
+      {!arlo.granted ? (
+        <Onboarding onAllow={() => void arlo.requestSiteAccess()} />
+      ) : arlo.tab?.blocked ? (
+        <BlockedScreen />
+      ) : !arlo.profile ? (
+        <ModelSetupScreen />
+      ) : arlo.state.phase === 'idle' ? (
+        <>
+          <IdleScreen
+            tab={arlo.tab}
+            busy={arlo.loading}
+            onSubmit={(prompt) => void arlo.submit(prompt)}
+          />
+          <Dock profile={arlo.profile}>
+            <Composer
+              placeholder="Reorder the coffee beans I bought last month…"
+              disabled={arlo.loading}
+              onSubmit={(prompt) => void arlo.submit(prompt)}
+            />
+          </Dock>
+        </>
+      ) : (
+        <Thread arlo={arlo} />
+      )}
     </div>
   );
 }
 
-function BlockedNotice() {
-  return (
-    <section className="panel">
-      <h1 className="panel__title">Arlo is switched off here</h1>
-      <p className="panel__lead">
-        This site is on your block list, or Arlo is paused everywhere. Both are in Settings.
-      </p>
-      <button type="button" className="button" onClick={() => chrome.runtime.openOptionsPage()}>
-        Open settings
-      </button>
-    </section>
-  );
-}
+function ErrorAlert({ arlo }: { arlo: Arlo }) {
+  const { error } = arlo;
+  if (!error) return null;
 
-function RunThread({ arlo, state }: { arlo: Arlo; state: RunState }) {
-  if (!state.task) return null;
   return (
-    <>
-      <TaskMessage prompt={state.task.prompt} />
-      <RunCard
-        state={state}
-        onPause={() => void arlo.send({ type: 'run:pause' })}
-        onResume={() => void arlo.send({ type: 'run:resume' })}
-        onStop={() => void arlo.send({ type: 'run:stop' })}
-        onNewTask={() => void arlo.send({ type: 'run:reset' })}
-      />
-    </>
-  );
-}
-
-function ComposerBlock({ arlo, tab }: { arlo: Arlo; tab: TabInfo | null }) {
-  if (!arlo.profile) return <ModelSetupNotice />;
-  return (
-    <>
-      <ProfileIndicator profile={arlo.profile} />
-      <Composer tab={tab} disabled={arlo.loading} onSubmit={(p) => void arlo.submit(p)} />
-    </>
-  );
-}
-
-function ProfileIndicator({ profile }: { profile: LlmProfileSummary }) {
-  return (
-    <button
-      type="button"
-      className="profile-indicator"
-      title={`Requests go directly to ${profile.origin}`}
-      onClick={() => chrome.runtime.openOptionsPage()}
-    >
-      <span>
-        <strong>{profile.name}</strong>
-        <span>{profile.model}</span>
-      </span>
-      <span aria-hidden="true">AI settings →</span>
-    </button>
-  );
-}
-
-function ModelSetupNotice() {
-  return (
-    <section className="panel">
-      <h1 className="panel__title">Connect an AI model to start</h1>
-      <p className="panel__lead">
-        Add an Anthropic or OpenAI-compatible profile and choose the default model Arlo should use.
-      </p>
+    <div className="panel-alert" role="alert">
+      <WarningIcon size={15} />
+      <div className="panel-alert__body">
+        <span>{error.message}</span>
+        {error.diagnostic ? (
+          <details className="panel-alert__details">
+            <summary>Technical details</summary>
+            <span>{contractLabel(error.diagnostic.apiContract)}</span>
+            <span>{error.diagnostic.endpoint}</span>
+            {error.diagnostic.status ? <span>HTTP {error.diagnostic.status}</span> : null}
+            {error.diagnostic.requestId ? <span>Request {error.diagnostic.requestId}</span> : null}
+            {error.diagnostic.responseExcerpt ? (
+              <span>{error.diagnostic.responseExcerpt}</span>
+            ) : null}
+          </details>
+        ) : null}
+      </div>
       <button
         type="button"
-        className="button button--primary"
-        onClick={() => chrome.runtime.openOptionsPage()}
+        className="panel-alert__dismiss"
+        onClick={arlo.dismissError}
+        title="Dismiss"
       >
-        Open AI settings
+        <CloseIcon />
+        <span className="visually-hidden">Dismiss</span>
       </button>
-    </section>
+    </div>
   );
 }
 
-function RunView({ arlo }: { arlo: Arlo }) {
-  const { state, tab } = arlo;
+/**
+ * A run is a thread: what was asked, what Arlo is doing about it, and whatever
+ * it needs from the user right now — with the composer always in reach.
+ */
+function Thread({ arlo }: { arlo: Arlo }) {
+  const { state } = arlo;
+  const thread = useRef<HTMLDivElement>(null);
+  const { phase, currentStepIndex } = state;
+
+  /*
+   * Put the thing that matters in view. A plan is read from step 1, so it opens
+   * at the top. Everything else grows downwards: a gate or a hand-off always
+   * wins — Arlo is blocked until the user answers, so the ask must never sit
+   * below the fold — and a run only follows along if the user was already at
+   * the bottom, so scrolling back to re-read something is not fought.
+   */
+  useEffect(() => {
+    const el = thread.current;
+    if (!el) return;
+    if (phase === 'planning' || phase === 'awaiting_approval') {
+      el.scrollTop = 0;
+      return;
+    }
+    const mustSee = phase === 'gated' || phase === 'needs_help';
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (mustSee || nearBottom) el.scrollTop = el.scrollHeight;
+  }, [phase, currentStepIndex]);
+
+  return (
+    <>
+      <div className="thread" ref={thread}>
+        {state.task ? <TaskMessage task={state.task} /> : null}
+        <ThreadBody arlo={arlo} />
+      </div>
+      <Dock profile={arlo.profile}>
+        <Composer
+          placeholder={composerHint(state)}
+          disabled={!isFinished(state) || arlo.loading}
+          onSubmit={(prompt) => void arlo.submit(prompt)}
+        />
+      </Dock>
+    </>
+  );
+}
+
+function ThreadBody({ arlo }: { arlo: Arlo }) {
+  const { state } = arlo;
   const step = currentStep(state);
+  // Keyed on the phase so the card reopens itself when the run needs something.
+  const run = (
+    <RunCard
+      key={state.phase}
+      state={state}
+      onPause={() => void arlo.send({ type: 'run:pause' })}
+      onResume={() => void arlo.send({ type: 'run:resume' })}
+      onStop={() => void arlo.send({ type: 'run:stop' })}
+    />
+  );
 
   switch (state.phase) {
-    case 'idle':
-      return <ComposerBlock arlo={arlo} tab={tab} />;
-
     case 'planning':
-      return (
-        <>
-          {state.task ? <TaskMessage prompt={state.task.prompt} /> : null}
-          <section className="card card--planning" aria-busy="true">
-            <p className="run__status">Reading this page and working out a plan…</p>
-          </section>
-        </>
-      );
+      return <PlanningCard tab={arlo.tab} />;
 
     case 'awaiting_approval':
-      return state.task && state.plan ? (
+      return state.plan ? (
         <PlanCard
-          task={state.task}
           plan={state.plan}
+          host={arlo.tab?.host}
           onApprove={() => void arlo.send({ type: 'run:approve-plan' })}
           onCancel={() => void arlo.send({ type: 'run:cancel' })}
         />
@@ -181,10 +168,12 @@ function RunView({ arlo }: { arlo: Arlo }) {
     case 'gated':
       return (
         <>
-          <RunThread arlo={arlo} state={state} />
+          {run}
           {step ? (
             <GateCard
               step={step}
+              position={state.currentStepIndex + 1}
+              total={state.plan?.steps.length ?? 0}
               onApprove={() => void arlo.send({ type: 'run:gate', decision: 'approve' })}
               onSkip={() => void arlo.send({ type: 'run:gate', decision: 'skip' })}
               onStop={() => void arlo.send({ type: 'run:gate', decision: 'stop' })}
@@ -196,7 +185,7 @@ function RunView({ arlo }: { arlo: Arlo }) {
     case 'needs_help':
       return (
         <>
-          <RunThread arlo={arlo} state={state} />
+          {run}
           {state.needsHelp ? (
             <NeedsHelpCard
               needsHelp={state.needsHelp}
@@ -209,32 +198,36 @@ function RunView({ arlo }: { arlo: Arlo }) {
       );
 
     case 'done':
+      return (
+        <>
+          {run}
+          <DoneOutcome state={state} onNewTask={() => void arlo.send({ type: 'run:reset' })} />
+        </>
+      );
+
     case 'stopped':
       return (
         <>
-          <RunThread arlo={arlo} state={state} />
-          <ComposerBlock arlo={arlo} tab={tab} />
+          {run}
+          <StoppedNotice state={state} />
         </>
       );
 
     case 'failed':
-      return (
-        <>
-          {state.task ? <TaskMessage prompt={state.task.prompt} /> : null}
-          <section className="card card--help">
-            <div className="card__header">
-              <h2 className="card__title">Couldn’t create a plan</h2>
-              <span className="badge badge--help">Failed</span>
-            </div>
-            <p className="card__note">
-              {state.summary ?? 'Check the AI connection and try again.'}
-            </p>
-          </section>
-          <ComposerBlock arlo={arlo} tab={tab} />
-        </>
-      );
+      return <FailedNotice state={state} onRetry={() => void arlo.send({ type: 'run:reset' })} />;
 
     default:
-      return <RunThread arlo={arlo} state={state} />;
+      return run;
   }
+}
+
+/** Terminal phases are the only ones where a new prompt can start anything. */
+function isFinished(state: RunState): boolean {
+  return state.phase === 'done' || state.phase === 'stopped' || state.phase === 'failed';
+}
+
+function composerHint(state: RunState): string {
+  if (isFinished(state)) return 'Ask a follow-up or start a new task…';
+  if (state.phase === 'gated') return 'Answer above before Arlo can carry on';
+  return 'Arlo is working — pause or stop it to change the task';
 }
