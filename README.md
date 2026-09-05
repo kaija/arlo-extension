@@ -192,4 +192,6 @@ tag matches `package.json`, runs the full verify pipeline and attaches the zip t
 ## Known version pin
 
 `typescript` is pinned to 5.9 rather than 7.x because `typescript-eslint` still caps its peer range
-at `<6.1.0`. Once typescript-eslint supports TypeScript 7, bump both together.
+at `<6.1.0`. Taking the major on its own makes `npm ci` fail with `ERESOLVE`, so Dependabot is told
+to skip TypeScript majors in `.github/dependabot.yml`. Once typescript-eslint supports TypeScript 7,
+bump both together and drop that ignore rule.
