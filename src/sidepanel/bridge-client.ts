@@ -61,10 +61,16 @@ export function turnError(frame: SseFrame): string | null {
   return null;
 }
 
-/** The token is optional: the bridge pairs on origin unless one was configured. */
+/**
+ * An extension holding a host permission makes a privileged fetch, and Chrome
+ * may send no Origin with it — so the panel names itself explicitly. The token
+ * is optional; pairing is the gate unless one was configured.
+ */
 function headers(config: BridgeConfig): Record<string, string> {
+  const id = typeof chrome !== 'undefined' && chrome.runtime?.id ? chrome.runtime.id : '';
   return {
     'content-type': 'application/json',
+    ...(id ? { 'x-arlo-client': id } : {}),
     ...(config.token ? { authorization: `Bearer ${config.token}` } : {}),
   };
 }
@@ -83,7 +89,9 @@ export type BridgeStatus =
   | 'forbidden'
   /** The bridge is up but will not accept our token. */
   | 'unauthorized'
-  /** The bridge is up but will not accept our origin. */
+  /** The bridge is up but is paired with a different extension. */
+  | 'paired-elsewhere'
+  /** The bridge is up but will not accept this caller. */
   | 'rejected'
   | 'unconfigured';
 
@@ -137,7 +145,15 @@ export async function probeBridge(config: BridgeConfig): Promise<BridgeStatus> {
   }
 
   if (response.status === 401) return 'unauthorized';
-  if (response.status === 403) return 'rejected';
+  if (response.status === 403) {
+    // The bridge says which kind of refusal it was; guessing produced a screen
+    // that told people to unpair a bridge that had never paired with anything.
+    const reason = await response
+      .json()
+      .then((body: { reason?: string }) => body.reason)
+      .catch(() => undefined);
+    return reason === 'another-client' ? 'paired-elsewhere' : 'rejected';
+  }
   return response.ok ? 'ok' : 'offline';
 }
 

@@ -41,6 +41,7 @@ const ALLOWED_ORIGINS = (process.env.ARLO_ALLOWED_ORIGINS ?? '')
   .map((o) => o.trim())
   .filter(Boolean);
 const ROOT = workspaceRoot();
+let announcedHeaders = false;
 
 function send(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -111,7 +112,7 @@ const server = createServer((req, res) => {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
         'access-control-allow-origin': origin ?? '*',
-        'access-control-allow-headers': 'authorization, content-type',
+        'access-control-allow-headers': 'authorization, content-type, x-arlo-client',
         'access-control-allow-methods': 'GET, POST, OPTIONS',
       });
       res.end();
@@ -124,8 +125,27 @@ const server = createServer((req, res) => {
       return;
     }
 
-    const decision = decideClient(origin, await readPinnedClient(ROOT), ALLOWED_ORIGINS);
+    const clientId = req.headers['x-arlo-client'];
+    const request = {
+      origin,
+      clientId: typeof clientId === 'string' ? clientId : undefined,
+    };
+
+    // One line, once, so what Chrome actually sends is a fact and not a guess.
+    if (!announcedHeaders) {
+      announcedHeaders = true;
+      process.stdout.write(
+        `first contact: origin=${origin ?? '(none)'} x-arlo-client=${request.clientId ?? '(none)'}\n`,
+      );
+    }
+
+    const decision = decideClient(request, await readPinnedClient(ROOT), ALLOWED_ORIGINS);
     if (!decision.allowed) {
+      // Say why on the console too. Diagnosing this from the panel alone cost a
+      // round trip that one printed line would have saved.
+      process.stdout.write(
+        `refused ${decision.reason}: origin=${origin ?? '(none)'} x-arlo-client=${request.clientId ?? '(none)'}\n`,
+      );
       send(res, 403, {
         error:
           decision.reason === 'another-client'

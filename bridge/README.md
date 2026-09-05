@@ -13,12 +13,14 @@ There is nothing to configure and nothing to copy. Open the side panel and it co
 ## What it guarantees
 
 - **Loopback only.** Binds `127.0.0.1`, never `0.0.0.0`.
-- **Paired to one extension.** The first `chrome-extension://` origin to connect is remembered in
-  `.arlo-client` in the workspace, and only that one is accepted afterwards. Chrome sets `Origin`
-  on an extension's cross-origin fetch and a page cannot forge it, so the origin is trustworthy
-  here. Delete that file to pair with a different extension.
-- **No Origin, no entry.** A browser always sends one cross-origin, so a request without it is not
-  the panel. This is what keeps a local script out.
+- **Paired to one extension.** The first extension to connect is remembered in `.arlo-client` in
+  the workspace, and only that one is accepted afterwards. Delete that file to pair again.
+- **Identified two ways.** An extension holding a host permission makes a _privileged_ fetch:
+  Chrome bypasses CORS and sends **no `Origin` header at all** — confirmed by the `first contact`
+  line this server prints. So the panel also sends its id in `X-Arlo-Client`, and either signal
+  identifies it.
+- **Pages cannot use the second route.** A custom header on a cross-origin fetch forces a preflight,
+  and a page always carries an `Origin` the bridge refuses — so forging the id buys nothing.
 
 A token is _not_ required. `ARLO_BRIDGE_TOKEN` still works if you want one — it is checked in
 constant time on top of the pairing — but it defends against local processes, which is a position

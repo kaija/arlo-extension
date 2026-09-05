@@ -23,7 +23,8 @@ export function ModelSetupScreen() {
 }
 
 interface BridgeScreenProps {
-  status: 'offline' | 'forbidden' | 'unauthorized' | 'rejected' | 'unconfigured';
+  status:
+    'offline' | 'forbidden' | 'unauthorized' | 'rejected' | 'paired-elsewhere' | 'unconfigured';
   url: string;
   onAllow: () => void;
   onRetry: () => void;
@@ -57,19 +58,24 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
     );
   }
 
-  if (status === 'unauthorized' || status === 'rejected') {
-    const badToken = status === 'unauthorized';
+  if (status === 'unauthorized' || status === 'rejected' || status === 'paired-elsewhere') {
+    const title =
+      status === 'unauthorized'
+        ? 'The bridge rejected the token'
+        : status === 'paired-elsewhere'
+          ? 'The bridge is paired elsewhere'
+          : 'The bridge refused this panel';
+    const lead =
+      status === 'unauthorized'
+        ? 'It is running and reachable, but the token in settings does not match the one it was started with.'
+        : status === 'paired-elsewhere'
+          ? 'It is running, but it is already paired with a different extension. Delete .arlo-client in the workspace folder to pair it again.'
+          : 'It is running, but it could not tell that this request came from the extension. Restarting the bridge and reopening the panel usually settles it.';
     return (
       <div className="screen">
         <div className="screen__group">
-          <h1 className="screen__title">
-            {badToken ? 'The bridge rejected the token' : 'The bridge is paired elsewhere'}
-          </h1>
-          <p className="screen__lead">
-            {badToken
-              ? 'It is running and reachable, but the token in settings does not match the one it was started with.'
-              : 'It is running, but it is already paired with a different extension. Delete .arlo-client in the workspace folder to pair it again.'}
-          </p>
+          <h1 className="screen__title">{title}</h1>
+          <p className="screen__lead">{lead}</p>
         </div>
         <div className="screen__actions">
           <button
@@ -77,7 +83,7 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
             className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
             onClick={() => chrome.runtime.openOptionsPage()}
           >
-            {badToken ? 'Open settings' : 'Open settings'}
+            Open settings
           </button>
           <button
             type="button"
