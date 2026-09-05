@@ -120,10 +120,6 @@ body {
   flex-wrap: wrap;
 }
 
-.row-end {
-  justify-content: flex-end;
-}
-
 .grow {
   flex: 1;
   min-width: 0;
@@ -301,15 +297,17 @@ body {
 
 /*
  * The editor's footer holds two groups — commit/cancel, then the per-profile
- * actions. When the column is narrow the whole second group drops to its own
- * line rather than splitting Duplicate away from Delete.
+ * actions. The second group is pushed right with an auto margin rather than
+ * `flex: 1` + `justify-content: flex-end`: a flex-end row that runs out of room
+ * overflows past its *start* edge, which put "Make default" on top of "Cancel".
+ * Sized by its content, the group drops to its own line instead.
  */
 .editor-footer {
   flex-wrap: wrap;
 }
 
-.editor-footer .row {
-  flex-wrap: nowrap;
+.editor-footer__actions {
+  margin-left: auto;
 }
 
 .empty-state {

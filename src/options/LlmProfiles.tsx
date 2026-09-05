@@ -695,26 +695,28 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                 </Alert>
               ) : (
                 <div className="card-footer editor-footer">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!dirty || busy}
-                    onClick={() => void saveProfile()}
-                  >
-                    Save profile
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={!dirty || busy}
-                    onClick={() => {
-                      if (original) openProfile(original);
-                      else beginCreate();
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <div className="row row-end grow">
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={!dirty || busy}
+                      onClick={() => void saveProfile()}
+                    >
+                      Save profile
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={!dirty || busy}
+                      onClick={() => {
+                        if (original) openProfile(original);
+                        else beginCreate();
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="row editor-footer__actions">
                     {draft.id !== settings.defaultLlmProfileId ? (
                       <button
                         type="button"
