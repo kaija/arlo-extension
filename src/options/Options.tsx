@@ -48,7 +48,9 @@ export function Options() {
     setBridge('checking');
     try {
       const response = await fetch(new URL('/verify', settings.bridgeUrl), {
-        headers: { authorization: `Bearer ${settings.bridgeToken}` },
+        headers: settings.bridgeToken
+          ? { authorization: `Bearer ${settings.bridgeToken}` }
+          : undefined,
       });
       if (response.ok) setBridge('online');
       else setBridge(response.status === 401 ? 'unauthorized' : 'rejected');
@@ -73,8 +75,8 @@ export function Options() {
         <div className="page-intro">
           <h1>Settings</h1>
           <p>
-            Arlo runs a Codex agent in a local bridge process. Point the extension at it, then give
-            it a model to think with.
+            Arlo runs a Codex agent in a local bridge process. Start the bridge and give it a model
+            to think with — there is nothing else to set up.
           </p>
         </div>
 
@@ -84,7 +86,8 @@ export function Options() {
               <h2 className="card-title">Bridge</h2>
               <p className="card-sub">
                 The agent runs outside the browser. Start it with{' '}
-                <code>cd bridge &amp;&amp; npm start</code> — it prints a token on the first line.
+                <code>cd bridge &amp;&amp; npm start</code> — it pairs with this extension by
+                itself, so there is nothing to copy.
               </p>
             </div>
             {bridge === 'online' ? <span className="badge badge-success">Online</span> : null}
@@ -93,7 +96,7 @@ export function Options() {
               <span className="badge badge-warning">Token rejected</span>
             ) : null}
             {bridge === 'rejected' ? (
-              <span className="badge badge-warning">Origin rejected</span>
+              <span className="badge badge-warning">Paired elsewhere</span>
             ) : null}
           </div>
 
@@ -110,28 +113,40 @@ export function Options() {
             </div>
           ) : null}
 
-          <div className="form-stack">
-            <Field id="bridge-url" label="Bridge address" hint="Loopback only — 127.0.0.1.">
-              <input
-                id="bridge-url"
-                className="input"
-                type="url"
-                spellCheck={false}
-                value={settings.bridgeUrl}
-                onChange={(event) => setSettings({ ...settings, bridgeUrl: event.target.value })}
-                onBlur={() => void update({ bridgeUrl: settings.bridgeUrl })}
-              />
-            </Field>
-
-            <Field
-              id="bridge-token"
-              label="Bridge token"
-              hint="Printed when the bridge starts. It changes on every restart unless you set ARLO_BRIDGE_TOKEN."
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={bridge === 'checking'}
+              onClick={() => void checkBridge()}
             >
-              <div className="row">
+              {bridge === 'checking' ? 'Checking…' : 'Test connection'}
+            </button>
+          </div>
+
+          <details className="advanced">
+            <summary>Advanced</summary>
+            <div className="form-stack">
+              <Field id="bridge-url" label="Bridge address" hint="Loopback only — 127.0.0.1.">
+                <input
+                  id="bridge-url"
+                  className="input"
+                  type="url"
+                  spellCheck={false}
+                  value={settings.bridgeUrl}
+                  onChange={(event) => setSettings({ ...settings, bridgeUrl: event.target.value })}
+                  onBlur={() => void update({ bridgeUrl: settings.bridgeUrl })}
+                />
+              </Field>
+
+              <Field
+                id="bridge-token"
+                label="Bridge token"
+                hint="Only needed if you started the bridge with ARLO_BRIDGE_TOKEN. Leave empty otherwise."
+              >
                 <input
                   id="bridge-token"
-                  className="input grow"
+                  className="input"
                   type="password"
                   autoComplete="off"
                   spellCheck={false}
@@ -141,17 +156,9 @@ export function Options() {
                   }
                   onBlur={() => void update({ bridgeToken: settings.bridgeToken })}
                 />
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={bridge === 'checking'}
-                  onClick={() => void checkBridge()}
-                >
-                  {bridge === 'checking' ? 'Checking…' : 'Test connection'}
-                </button>
-              </div>
-            </Field>
-          </div>
+              </Field>
+            </div>
+          </details>
         </section>
 
         {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}

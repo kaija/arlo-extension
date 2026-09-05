@@ -63,12 +63,12 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
       <div className="screen">
         <div className="screen__group">
           <h1 className="screen__title">
-            {badToken ? 'The bridge rejected the token' : 'The bridge rejected this panel'}
+            {badToken ? 'The bridge rejected the token' : 'The bridge is paired elsewhere'}
           </h1>
           <p className="screen__lead">
             {badToken
-              ? 'It is running and reachable. The token changes every time it restarts unless you set ARLO_BRIDGE_TOKEN — copy the one it printed.'
-              : 'It is running and reachable, but it will not accept requests from this extension. Check ARLO_ALLOWED_ORIGINS where the bridge was started.'}
+              ? 'It is running and reachable, but the token in settings does not match the one it was started with.'
+              : 'It is running, but it is already paired with a different extension. Delete .arlo-client in the workspace folder to pair it again.'}
           </p>
         </div>
         <div className="screen__actions">

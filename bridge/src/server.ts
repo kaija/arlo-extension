@@ -17,7 +17,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 
 import { Codex } from '@openai/codex-sdk';
 
-import { bearerToken, createToken, originAllowed, tokenMatches } from './auth.ts';
+import { bearerToken, tokenMatches } from './auth.ts';
+import { decideClient, readPinnedClient, writePinnedClient } from './client-pin.ts';
 import {
   buildEnv,
   buildProviderConfig,
@@ -33,7 +34,8 @@ import {
 } from './sessions.ts';
 
 const PORT = Number(process.env.ARLO_BRIDGE_PORT ?? 4319);
-const TOKEN = process.env.ARLO_BRIDGE_TOKEN ?? createToken();
+/** Optional. Unset by default — the client pin is the gate. */
+const TOKEN = process.env.ARLO_BRIDGE_TOKEN ?? '';
 const ALLOWED_ORIGINS = (process.env.ARLO_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((o) => o.trim())
@@ -122,11 +124,22 @@ const server = createServer((req, res) => {
       return;
     }
 
-    if (!originAllowed(origin, ALLOWED_ORIGINS)) {
-      send(res, 403, { error: 'Origin not allowed.' });
+    const decision = decideClient(origin, await readPinnedClient(ROOT), ALLOWED_ORIGINS);
+    if (!decision.allowed) {
+      send(res, 403, {
+        error:
+          decision.reason === 'another-client'
+            ? 'This bridge is paired with a different extension. Delete .arlo-client in the workspace to pair again.'
+            : 'Only the Arlo extension may use this bridge.',
+        reason: decision.reason,
+      });
       return;
     }
-    if (!tokenMatches(TOKEN, bearerToken(req.headers.authorization))) {
+    if (decision.pin) {
+      await writePinnedClient(ROOT, decision.pin);
+      process.stdout.write(`Paired with ${decision.pin}\n`);
+    }
+    if (TOKEN && !tokenMatches(TOKEN, bearerToken(req.headers.authorization))) {
       send(res, 401, { error: 'Bad or missing bridge token.' });
       return;
     }
@@ -169,11 +182,13 @@ const server = createServer((req, res) => {
   })();
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '127.0.0.1', async () => {
+  const pinned = await readPinnedClient(ROOT);
   process.stdout.write(
     `Arlo bridge on http://127.0.0.1:${PORT}\n` +
       `  workspace  ${ROOT}\n` +
-      `  token      ${TOKEN}\n\n` +
-      `Paste that token into the extension's AI settings.\n`,
+      `  paired to  ${pinned ?? 'nothing yet — the first extension to connect'}\n` +
+      (TOKEN ? `  token      ${TOKEN}\n` : '') +
+      `\nNothing to configure. Open the side panel.\n`,
   );
 });

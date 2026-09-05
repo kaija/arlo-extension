@@ -61,8 +61,12 @@ export function turnError(frame: SseFrame): string | null {
   return null;
 }
 
+/** The token is optional: the bridge pairs on origin unless one was configured. */
 function headers(config: BridgeConfig): Record<string, string> {
-  return { authorization: `Bearer ${config.token}`, 'content-type': 'application/json' };
+  return {
+    'content-type': 'application/json',
+    ...(config.token ? { authorization: `Bearer ${config.token}` } : {}),
+  };
 }
 
 /**
@@ -126,7 +130,7 @@ export async function probeBridge(config: BridgeConfig): Promise<BridgeStatus> {
   try {
     response = await fetch(new URL('/verify', config.url), {
       method: 'GET',
-      headers: { authorization: `Bearer ${config.token}` },
+      headers: headers(config),
     });
   } catch {
     return 'offline';

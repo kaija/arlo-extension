@@ -310,6 +310,28 @@ body {
   margin-left: auto;
 }
 
+/* An escape hatch, not a step: closed unless something is unusual. */
+.advanced {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.advanced > summary {
+  font-size: 0.8125rem;
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.advanced > summary:hover {
+  color: var(--text-body);
+}
+
+.advanced .form-stack {
+  margin-top: 16px;
+}
+
 .empty-state {
   padding: 20px;
   font-size: 0.875rem;

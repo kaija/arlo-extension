@@ -154,7 +154,7 @@ export function useChat(): Chat {
     bridgeUrl: config.url,
     profile,
     status,
-    configured: !!profile && !!config.token,
+    configured: !!profile,
     error,
     send,
     reset: () => setSession(emptySession),

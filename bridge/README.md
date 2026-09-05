@@ -8,15 +8,22 @@ is the seam between the two.
 cd bridge && npm install && npm start
 ```
 
-It prints a bearer token on startup; paste that into the extension's AI settings.
+There is nothing to configure and nothing to copy. Open the side panel and it connects.
 
 ## What it guarantees
 
 - **Loopback only.** Binds `127.0.0.1`, never `0.0.0.0`.
-- **Token gated.** A token is minted per start and compared in constant time. Any page in the
-  browser can reach a loopback port, so this is the gate that matters.
-- **Origin checked.** Only `chrome-extension://` origins by default. Defence in depth — a browser
-  always sends `Origin` cross-origin, so a page cannot omit it to slip through.
+- **Paired to one extension.** The first `chrome-extension://` origin to connect is remembered in
+  `.arlo-client` in the workspace, and only that one is accepted afterwards. Chrome sets `Origin`
+  on an extension's cross-origin fetch and a page cannot forge it, so the origin is trustworthy
+  here. Delete that file to pair with a different extension.
+- **No Origin, no entry.** A browser always sends one cross-origin, so a request without it is not
+  the panel. This is what keeps a local script out.
+
+A token is _not_ required. `ARLO_BRIDGE_TOKEN` still works if you want one — it is checked in
+constant time on top of the pairing — but it defends against local processes, which is a position
+already lost: anything running code on this machine can invoke `codex` directly.
+
 - **One folder per session.** Every chat gets `<workspace>/<uuid>/` and the agent is sandboxed to it
   with `sandboxMode: 'workspace-write'` and no network. It cannot read or write another session.
 - **No approvals.** `approvalPolicy: 'never'` — there is no one at the other end to answer a prompt,
@@ -24,12 +31,12 @@ It prints a bearer token on startup; paste that into the extension's AI settings
 
 ## Environment
 
-| Variable               | Default                   |
-| ---------------------- | ------------------------- |
-| `ARLO_BRIDGE_PORT`     | `4319`                    |
-| `ARLO_BRIDGE_TOKEN`    | random per start          |
-| `ARLO_WORKSPACE_ROOT`  | `~/.arlo/sessions`        |
-| `ARLO_ALLOWED_ORIGINS` | any `chrome-extension://` |
+| Variable               | Default                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `ARLO_BRIDGE_PORT`     | `4319`                                                       |
+| `ARLO_BRIDGE_TOKEN`    | random per start                                             |
+| `ARLO_WORKSPACE_ROOT`  | `~/.arlo/sessions`                                           |
+| `ARLO_ALLOWED_ORIGINS` | none; _adds_ origins, and never removes the paired extension |
 
 ## Routes
 
