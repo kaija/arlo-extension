@@ -45,7 +45,12 @@ node_modules: package-lock.json package.json
 	@touch node_modules
 
 .PHONY: install
-install: node_modules ## Install dependencies from the lockfile
+install: node_modules bridge/node_modules ## Install extension and bridge dependencies
+
+bridge/node_modules: bridge/package-lock.json bridge/package.json
+	@$(MAKE) --no-print-directory check-node
+	$(NPM) ci --prefix bridge
+	@touch bridge/node_modules
 
 # ---------------------------------------------------------------- build
 
@@ -74,15 +79,15 @@ icons: ## Regenerate the placeholder icons in public/icons/
 # ---------------------------------------------------------------- checks
 
 .PHONY: test
-test: node_modules ## Run the tests once
+test: node_modules bridge/node_modules ## Run the tests once
 	$(NPM) test
 
 .PHONY: watch
-watch: node_modules ## Run the tests in watch mode
+watch: node_modules bridge/node_modules ## Run the tests in watch mode
 	$(NPM) run test:watch
 
 .PHONY: coverage
-coverage: node_modules ## Run the tests with coverage thresholds
+coverage: node_modules bridge/node_modules ## Run the tests with coverage thresholds
 	$(NPM) run test:coverage
 
 .PHONY: lint
@@ -99,11 +104,12 @@ format: node_modules ## Format with Prettier
 	$(NPM) run format
 
 .PHONY: typecheck
-typecheck: node_modules ## Typecheck without emitting
+typecheck: node_modules bridge/node_modules ## Typecheck without emitting
 	$(NPM) run typecheck
+	$(NPM) run typecheck --prefix bridge
 
 .PHONY: verify
-verify: node_modules ## Everything CI runs, in the same order
+verify: node_modules bridge/node_modules ## Everything CI runs, in the same order
 	$(NPM) run verify
 
 # ---------------------------------------------------------------- release

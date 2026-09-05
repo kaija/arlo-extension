@@ -5,6 +5,8 @@
  * worker is torn down after roughly thirty seconds idle and an agent turn runs
  * for minutes. The cost is that closing the panel ends the turn.
  */
+import { tabReadFailure, type TabReadRequest, type TabReadResult } from '../shared/tab-read';
+import { BRIDGE_CAPABILITIES, supportsPageReader } from '../shared/bridge-protocol';
 
 export interface BridgeConfig {
   url: string;
@@ -53,7 +55,12 @@ export function agentMessageText(frame: SseFrame): string | null {
 
 export function turnError(frame: SseFrame): string | null {
   const data = frame.data as { message?: string; error?: { message?: string } | string };
-  if (frame.event === 'error') return data?.message ?? 'The agent reported an error.';
+  if (frame.event === 'error')
+    return (
+      data?.message ??
+      (typeof data?.error === 'string' ? data.error : data?.error?.message) ??
+      'The agent reported an error.'
+    );
   if (frame.event === 'turn.failed') {
     const error = data?.error;
     return (typeof error === 'string' ? error : error?.message) ?? 'The turn failed.';
@@ -93,6 +100,8 @@ export type BridgeStatus =
   | 'paired-elsewhere'
   /** The bridge is up but will not accept this caller. */
   | 'rejected'
+  /** Reachable, but running code from before the current-page reader. */
+  | 'upgrade-required'
   | 'unconfigured';
 
 /**
@@ -154,7 +163,9 @@ export async function probeBridge(config: BridgeConfig): Promise<BridgeStatus> {
       .catch(() => undefined);
     return reason === 'another-client' ? 'paired-elsewhere' : 'rejected';
   }
-  return response.ok ? 'ok' : 'offline';
+  if (!response.ok) return 'offline';
+  const info: unknown = await response.json().catch(() => null);
+  return supportsPageReader(info) ? 'ok' : 'upgrade-required';
 }
 
 export async function createSession(config: BridgeConfig): Promise<string> {
@@ -181,6 +192,7 @@ async function readError(response: Response): Promise<string> {
 export interface TurnHandlers {
   onText: (text: string) => void;
   onError: (message: string) => void;
+  onPageRead?: (options: unknown) => Promise<TabReadResult>;
 }
 
 export async function streamTurn(
@@ -194,7 +206,11 @@ export async function streamTurn(
   const response = await fetch(new URL(`/sessions/${sessionId}/messages`, config.url), {
     method: 'POST',
     headers: headers(config),
-    body: JSON.stringify({ prompt, profile }),
+    body: JSON.stringify({
+      prompt,
+      profile,
+      capabilities: handlers.onPageRead ? BRIDGE_CAPABILITIES : {},
+    }),
     ...(signal ? { signal } : {}),
   });
   if (!response.ok) throw new Error(await readError(response));
@@ -204,17 +220,58 @@ export async function streamTurn(
   const decoder = new TextDecoder();
   let buffer = '';
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const { frames, rest } = parseSseChunk(buffer);
-    buffer = rest;
-    for (const frame of frames) {
-      const text = agentMessageText(frame);
-      if (text) handlers.onText(text);
-      const error = turnError(frame);
-      if (error) handlers.onError(error);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const { frames, rest } = parseSseChunk(buffer);
+      buffer = rest;
+      for (const frame of frames) {
+        if (frame.event === 'page.read') {
+          const request = frame.data as TabReadRequest;
+          if (
+            !request ||
+            typeof request.requestId !== 'string' ||
+            !/^[a-f0-9-]{36}$/.test(request.requestId)
+          ) {
+            throw new Error('The bridge sent an invalid page read request.');
+          }
+          let result: TabReadResult;
+          try {
+            result = handlers.onPageRead
+              ? await handlers.onPageRead(request.options)
+              : {
+                  ok: false,
+                  error: {
+                    code: 'READER_UNAVAILABLE',
+                    message: 'Reload the Arlo extension to enable page reading.',
+                  },
+                };
+          } catch (cause) {
+            result = tabReadFailure(cause);
+          }
+          const reply = await fetch(
+            new URL(`/sessions/${sessionId}/page-results/${request.requestId}`, config.url),
+            {
+              method: 'POST',
+              headers: headers(config),
+              body: JSON.stringify(result),
+              ...(signal ? { signal } : {}),
+            },
+          );
+          // A timeout or ended turn can retire a read while Chrome is answering.
+          if (!reply.ok && reply.status !== 410) throw new Error(await readError(reply));
+          continue;
+        }
+        const text = agentMessageText(frame);
+        if (text) handlers.onText(text);
+        const error = turnError(frame);
+        if (error) handlers.onError(error);
+      }
     }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
 }

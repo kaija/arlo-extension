@@ -24,7 +24,13 @@ export function ModelSetupScreen() {
 
 interface BridgeScreenProps {
   status:
-    'offline' | 'forbidden' | 'unauthorized' | 'rejected' | 'paired-elsewhere' | 'unconfigured';
+    | 'offline'
+    | 'forbidden'
+    | 'unauthorized'
+    | 'rejected'
+    | 'paired-elsewhere'
+    | 'unconfigured'
+    | 'upgrade-required';
   url: string;
   onAllow: () => void;
   onRetry: () => void;
@@ -36,6 +42,29 @@ interface BridgeScreenProps {
  * that is already running.
  */
 export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScreenProps) {
+  if (status === 'upgrade-required') {
+    return (
+      <div className="screen">
+        <div className="screen__group">
+          <h1 className="screen__title">Restart Arlo’s bridge</h1>
+          <p className="screen__lead">
+            The bridge is running an older version that cannot read your current page. Restart it to
+            load the update. This panel will reconnect automatically.
+          </p>
+        </div>
+        <div className="screen__actions">
+          <button
+            type="button"
+            className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
+            onClick={onRetry}
+          >
+            Check again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (status === 'unconfigured') {
     return (
       <div className="screen">

@@ -16,9 +16,16 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { Codex } from '@openai/codex-sdk';
+import { BRIDGE_CAPABILITIES, supportsPageReader } from '../../src/shared/bridge-protocol.ts';
 
 import { bearerToken, tokenMatches } from './auth.ts';
 import { decideClient, readPinnedClient, writePinnedClient } from './client-pin.ts';
+import {
+  PAGE_TOOL_TOKEN_ENV,
+  PageToolChannel,
+  pageToolConfig,
+  servePageMcp,
+} from './page-tools.ts';
 import {
   buildEnv,
   buildProviderConfig,
@@ -42,6 +49,8 @@ const ALLOWED_ORIGINS = (process.env.ARLO_ALLOWED_ORIGINS ?? '')
   .filter(Boolean);
 const ROOT = workspaceRoot();
 let announcedHeaders = false;
+const pageChannels = new Map<string, { sessionId: string; channel: PageToolChannel }>();
+const runningSessions = new Set<string>();
 
 function send(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -77,37 +86,83 @@ async function runTurn(
   prompt: string,
 ): Promise<void> {
   const dir = sessionDir(ROOT, id);
-  const codex = new Codex({
-    env: buildEnv(profile.apiKey),
-    config: buildProviderConfig(profile),
-  });
+  if (runningSessions.has(id)) throw new Error('This chat already has a running turn.');
+  const channel = new PageToolChannel((request) => sse(res, 'page.read', request));
+  const abort = new AbortController();
+  const onClose = () => {
+    channel.close();
+    abort.abort();
+  };
+  runningSessions.add(id);
+  pageChannels.set(channel.id, { sessionId: id, channel });
+  res.once('close', onClose);
+  try {
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('The bridge is not listening.');
+    const codex = new Codex({
+      env: { ...buildEnv(profile.apiKey), [PAGE_TOOL_TOKEN_ENV]: channel.token },
+      config: {
+        ...buildProviderConfig(profile),
+        ...pageToolConfig(`http://127.0.0.1:${address.port}`, channel),
+      },
+    });
 
-  const settings = buildThreadSettings(profile, dir);
-  const existing = await readThreadId(dir);
-  const thread = existing ? codex.resumeThread(existing, settings) : codex.startThread(settings);
+    const settings = buildThreadSettings(profile, dir);
+    const existing = await readThreadId(dir);
+    const thread = existing ? codex.resumeThread(existing, settings) : codex.startThread(settings);
 
-  res.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-store',
-    connection: 'keep-alive',
-  });
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    });
 
-  const { events } = await thread.runStreamed(prompt);
-  for await (const event of events) {
-    sse(res, event.type ?? 'event', event);
+    const { events } = await thread.runStreamed(prompt, { signal: abort.signal });
+    for await (const event of events) {
+      sse(res, event.type ?? 'event', event);
+    }
+
+    const threadId = (thread as { id?: string }).id;
+    if (threadId && !existing) await writeThreadId(dir, threadId);
+
+    sse(res, 'done', { sessionId: id, threadId: threadId ?? existing });
+    res.end();
+  } finally {
+    channel.close();
+    pageChannels.delete(channel.id);
+    runningSessions.delete(id);
+    res.removeListener('close', onClose);
   }
-
-  const threadId = (thread as { id?: string }).id;
-  if (threadId && !existing) await writeThreadId(dir, threadId);
-
-  sse(res, 'done', { sessionId: id, threadId: threadId ?? existing });
-  res.end();
 }
 
 const server = createServer((req, res) => {
   void (async () => {
     const origin = req.headers.origin;
     const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`);
+
+    // Codex has a separate, per-turn capability. Never let it use the extension
+    // pairing routes, and never let a webpage reach MCP through a browser Origin.
+    const mcp = /^\/mcp\/([^/]+)$/.exec(url.pathname);
+    if (mcp) {
+      const entry = pageChannels.get(mcp[1]!);
+      if (origin || !entry?.channel.accepts(bearerToken(req.headers.authorization))) {
+        send(res, 403, { error: 'This page tool is not available to this caller.' });
+        return;
+      }
+      if (req.method !== 'POST') {
+        res.setHeader('allow', 'POST');
+        send(res, 405, { error: 'Use POST for this stateless MCP endpoint.' });
+        return;
+      }
+      try {
+        await servePageMcp(req, res, await readJson(req), entry.channel);
+      } catch (cause) {
+        if (!res.headersSent)
+          send(res, 400, { error: cause instanceof Error ? cause.message : String(cause) });
+        else res.end();
+      }
+      return;
+    }
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
@@ -121,7 +176,7 @@ const server = createServer((req, res) => {
     if (origin) res.setHeader('access-control-allow-origin', origin);
 
     if (url.pathname === '/health' && req.method === 'GET') {
-      send(res, 200, { ok: true, workspaceRoot: ROOT });
+      send(res, 200, { ok: true, workspaceRoot: ROOT, capabilities: BRIDGE_CAPABILITIES });
       return;
     }
 
@@ -166,7 +221,7 @@ const server = createServer((req, res) => {
 
     try {
       if (url.pathname === '/verify' && req.method === 'GET') {
-        send(res, 200, { ok: true, workspaceRoot: ROOT });
+        send(res, 200, { ok: true, workspaceRoot: ROOT, capabilities: BRIDGE_CAPABILITIES });
         return;
       }
 
@@ -176,9 +231,28 @@ const server = createServer((req, res) => {
         return;
       }
 
+      const pageResult = /^\/sessions\/([^/]+)\/page-results\/([^/]+)$/.exec(url.pathname);
+      if (pageResult && req.method === 'POST') {
+        const body = await readJson(req);
+        const entry = [...pageChannels.values()].find((item) => item.sessionId === pageResult[1]);
+        if (!entry?.channel.complete(pageResult[2]!, body)) {
+          send(res, 410, { error: 'This page read is no longer pending.' });
+          return;
+        }
+        send(res, 200, { ok: true });
+        return;
+      }
+
       const turn = /^\/sessions\/([^/]+)\/messages$/.exec(url.pathname);
       if (turn && req.method === 'POST') {
         const body = await readJson(req);
+        if (!supportsPageReader(body)) {
+          send(res, 409, {
+            error:
+              'This Arlo panel needs to be reloaded to read the current page. Reload the extension at chrome://extensions, then reopen the panel.',
+          });
+          return;
+        }
         const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
         if (!prompt) {
           send(res, 400, { error: 'A prompt is required.' });
@@ -204,8 +278,10 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, '127.0.0.1', async () => {
   const pinned = await readPinnedClient(ROOT);
+  const address = server.address();
+  const listeningPort = address && typeof address !== 'string' ? address.port : PORT;
   process.stdout.write(
-    `Arlo bridge on http://127.0.0.1:${PORT}\n` +
+    `Arlo bridge on http://127.0.0.1:${listeningPort}\n` +
       `  workspace  ${ROOT}\n` +
       `  paired to  ${pinned ?? 'nothing yet — the first extension to connect'}\n` +
       (TOKEN ? `  token      ${TOKEN}\n` : '') +

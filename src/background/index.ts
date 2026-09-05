@@ -3,14 +3,25 @@
  * the side panel to the local bridge, because an MV3 worker is torn down after
  * about thirty seconds idle and an agent turn runs for minutes.
  *
- * What is left is the one call that cannot be made from the panel — reaching a
- * model provider's /models endpoint, which needs a host permission.
+ * It opens the panel from a toolbar gesture and reaches a model provider's
+ * /models endpoint, which needs a host permission.
  */
 import type { BackgroundRequest, BackgroundResponse } from '../shared/messages';
 import { listModels, publicLlmError } from './llm-client';
 
-chrome.runtime.onInstalled.addListener(async () => {
-  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+// Chrome's automatic side-panel toggle skips the activeTab grant. Disable the
+// persisted setting from older versions, then use the normal action event so
+// Chrome grants this tab access before opening the panel. See Chromium's
+// ExtensionActionRunner::RunAction (crbug.com/40904917).
+void chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: false })
+  .catch((error: unknown) => console.error('Arlo could not configure its toolbar action:', error));
+
+chrome.action.onClicked.addListener((tab) => {
+  // Call immediately: sidePanel.open requires the click's user gesture.
+  void chrome.sidePanel
+    .open({ windowId: tab.windowId })
+    .catch((error: unknown) => console.error('Arlo could not open its side panel:', error));
 });
 
 async function handle(request: BackgroundRequest): Promise<BackgroundResponse> {

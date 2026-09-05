@@ -27,7 +27,7 @@ export function createManifest(version: string): chrome.runtime.ManifestV3 {
       default_path: 'sidepanel/index.html',
     },
     options_page: 'options/index.html',
-    permissions: ['activeTab', 'sidePanel', 'storage'],
+    permissions: ['activeTab', 'scripting', 'sidePanel', 'storage'],
     // Granted in context from settings, once a bridge URL is configured.
     optional_host_permissions: BRIDGE_HOST_PERMISSIONS,
   };

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { emptySession, type ChatMessage, type ChatSession } from '../core/chat';
 import { newId } from '../shared/messages';
+import { readCurrentTab } from './page-reader';
 import {
   bridgeOriginPattern,
   createSession,
@@ -50,6 +51,8 @@ export function useChat(): Chat {
   // and a ref would not re-render the panel when settings change.
   const [config, setConfig] = useState<BridgeConfig>({ url: '', token: '' });
   const full = useRef<LlmProfile | null>(null);
+  const activeTurn = useRef<AbortController | null>(null);
+  useEffect(() => () => activeTurn.current?.abort(), []);
 
   useEffect(() => {
     let live = true;
@@ -97,7 +100,9 @@ export function useChat(): Chat {
   const send = useCallback(
     async (text: string) => {
       const prompt = text.trim();
-      if (!prompt) return;
+      if (!prompt || activeTurn.current || status !== 'ok') return;
+      const controller = new AbortController();
+      activeTurn.current = controller;
       setError(null);
 
       const pending = message('assistant', '', { streaming: true });
@@ -116,37 +121,54 @@ export function useChat(): Chat {
       try {
         const profileForTurn = full.current;
         if (!profileForTurn) throw new Error('No AI profile is configured.');
+        // getCurrent belongs to this panel, unlike the last focused window,
+        // which can change while the agent is thinking.
+        const window = await chrome.windows.getCurrent();
+        controller.signal.throwIfAborted();
+        if (window.id === undefined) throw new Error('The Arlo browser window is unavailable.');
+        const windowId = window.id;
 
         // The session folder is created on first use, so a chat that is never
         // sent leaves nothing behind on disk.
         let id = session.id;
         if (!id) {
           id = await createSession(config);
+          controller.signal.throwIfAborted();
           setSession((current) => ({ ...current, id }));
         }
 
         let answer = '';
-        await streamTurn(config, id, prompt, profileForTurn, {
-          onText: (chunk) => {
-            answer = answer ? `${answer}\n\n${chunk}` : chunk;
-            replace({ text: answer });
+        await streamTurn(
+          config,
+          id,
+          prompt,
+          profileForTurn,
+          {
+            onPageRead: (options) => readCurrentTab(windowId, options),
+            onText: (chunk) => {
+              answer = answer ? `${answer}\n\n${chunk}` : chunk;
+              replace({ text: answer });
+            },
+            onError: (reason) => {
+              answer = answer ? `${answer}\n\n${reason}` : reason;
+              replace({ text: answer, failed: true });
+            },
           },
-          onError: (reason) => {
-            answer = answer ? `${answer}\n\n${reason}` : reason;
-            replace({ text: answer, failed: true });
-          },
-        });
+          controller.signal,
+        );
 
         replace({ streaming: false, ...(answer ? {} : { text: 'The agent returned nothing.' }) });
       } catch (cause) {
+        if (controller.signal.aborted) return;
         const reason = cause instanceof Error ? cause.message : String(cause);
         replace({ streaming: false, failed: true, text: reason });
         setError(reason);
       } finally {
+        if (activeTurn.current === controller) activeTurn.current = null;
         setSession((current) => ({ ...current, running: false }));
       }
     },
-    [session.id, config],
+    [session.id, config, status],
   );
 
   return {
@@ -157,7 +179,11 @@ export function useChat(): Chat {
     configured: !!profile,
     error,
     send,
-    reset: () => setSession(emptySession),
+    reset: () => {
+      activeTurn.current?.abort();
+      setSession(emptySession);
+      setError(null);
+    },
     dismissError: () => setError(null),
     allowAccess,
     recheck: () => setAttempt((n) => n + 1),

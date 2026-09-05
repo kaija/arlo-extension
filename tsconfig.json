@@ -20,5 +20,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "bridge/tests", "vite.config.ts", "vitest.config.ts"]
 }

@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   agentMessageText,
   bridgeOriginPattern,
   parseSseChunk,
+  probeBridge,
   turnError,
+  streamTurn,
   type SseFrame,
 } from '../src/sidepanel/bridge-client';
 
@@ -52,6 +54,7 @@ describe('reading Codex events', () => {
   });
 
   it('surfaces both shapes of failure Codex reports', () => {
+    expect(turnError(frame('error', { error: 'Bridge failed' }))).toBe('Bridge failed');
     expect(turnError(frame('error', { message: '401 Unauthorized' }))).toBe('401 Unauthorized');
     expect(turnError(frame('turn.failed', { error: { message: 'ran out of context' } }))).toBe(
       'ran out of context',
@@ -61,7 +64,107 @@ describe('reading Codex events', () => {
   });
 });
 
+describe('page read requests during a streamed turn', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('answers browser requests and then continues reading the agent response', async () => {
+    const requestId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
+    const options = { level: 'detailed', offset: 0, maxChars: 12000 };
+    const result = {
+      ok: false as const,
+      error: { code: 'PAGE_ACCESS_REQUIRED', message: 'Click Arlo.' },
+    };
+    const encoder = new TextEncoder();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  `event: page.read\ndata: ${JSON.stringify({ requestId, options })}\n\n`,
+                ),
+              );
+              controller.enqueue(
+                encoder.encode(
+                  'event: item.completed\ndata: {"item":{"type":"agent_message","text":"Please grant access."}}\n\n',
+                ),
+              );
+              controller.close();
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{}'));
+    vi.stubGlobal('fetch', fetchMock);
+    const onPageRead = vi.fn().mockResolvedValue(result);
+    const onText = vi.fn();
+    await streamTurn(
+      { url: 'http://127.0.0.1:4319', token: 'test' },
+      'session',
+      'Read this page',
+      {},
+      { onText, onError: vi.fn(), onPageRead },
+    );
+    expect(onPageRead).toHaveBeenCalledWith(options);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body)).toMatchObject({
+      capabilities: { pageReader: 1 },
+    });
+    expect(fetchMock.mock.calls[1]?.[0].pathname).toBe(
+      `/sessions/session/page-results/${requestId}`,
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1]?.[1].body)).toEqual(result);
+    expect(fetchMock.mock.calls[1]?.[1].headers.authorization).toBe('Bearer test');
+    expect(onText).toHaveBeenCalledWith('Please grant access.');
+  });
+
+  it('reports an old panel without a reader and tolerates replies to expired requests', async () => {
+    const data = { requestId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', options: {} };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(`event: page.read\ndata: ${JSON.stringify(data)}\n\n`))
+      .mockResolvedValueOnce(new Response('{}', { status: 410 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await streamTurn(
+      { url: 'http://127.0.0.1:4319', token: '' },
+      'session',
+      'Read',
+      {},
+      { onText: vi.fn(), onError: vi.fn() },
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1]?.[1].body)).toMatchObject({
+      ok: false,
+      error: { code: 'READER_UNAVAILABLE' },
+    });
+  });
+});
+
 describe('reaching the bridge', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('does not call an old bridge connected when it cannot register the page reader', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ ok: true, workspaceRoot: '/sessions' }))),
+    );
+    expect(await probeBridge({ url: 'http://127.0.0.1:4319', token: '' })).toBe('upgrade-required');
+  });
+
+  it('accepts a bridge advertising the compatible page reader', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ ok: true, capabilities: { pageReader: 1 } })),
+        ),
+    );
+    expect(await probeBridge({ url: 'http://127.0.0.1:4319', token: '' })).toBe('ok');
+  });
+
   it('derives the host pattern Chrome needs, without the port', () => {
     // Match patterns carry no port, so including one makes the pattern invalid.
     expect(bridgeOriginPattern('http://127.0.0.1:4319')).toBe('http://127.0.0.1/*');

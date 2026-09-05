@@ -10,6 +10,17 @@ cd bridge && npm install && npm start
 
 There is nothing to configure and nothing to copy. Open the side panel and it connects.
 
+## Current-tab tool
+
+Each agent turn registers `read_current_tab` with `compact`, `detailed`, and `html` levels.
+The browser captures the active tab in the Arlo panel's own window when the agent calls it.
+Long responses can be continued with a page fingerprint, so changed pages cannot be mixed.
+See [the tool contract and implementation notes](../docs/current-tab-tool.md).
+
+After updating, reinstall bridge dependencies, rebuild/reload the extension and restart this
+process. Click the Arlo toolbar icon on the page to provide Chrome's temporary page access.
+Tool registration is automatic for Arlo's Codex child and does not change global Codex settings.
+
 ## What it guarantees
 
 - **Loopback only.** Binds `127.0.0.1`, never `0.0.0.0`.
@@ -42,11 +53,13 @@ already lost: anything running code on this machine can invoke `codex` directly.
 
 ## Routes
 
-| Route                         | Purpose                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| `GET /health`                 | liveness and workspace root; the only unauthenticated route |
-| `POST /sessions`              | create a session folder, returns `{ id, dir }`              |
-| `POST /sessions/:id/messages` | run one turn, streaming Codex events as SSE                 |
+| Route                                        | Purpose                                                         |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| `GET /health`                                | liveness and workspace root; the only unauthenticated route     |
+| `POST /sessions`                             | create a session folder, returns `{ id, dir }`                  |
+| `POST /sessions/:id/messages`                | run one turn, streaming Codex events as SSE                     |
+| `POST /sessions/:id/page-results/:requestId` | answer a pending browser read for this chat                     |
+| `POST /mcp/:turnId`                          | Codex-only MCP endpoint, authenticated by a per-turn capability |
 
 The API key is passed to Codex by _name_ (`env_key`), so it travels in the child environment and is
 never written to a config file. `wire_api` is chosen from the profile's contract — `responses` or

@@ -19,6 +19,10 @@ can use Anthropic Messages, OpenAI Responses, or OpenAI-compatible Chat Completi
 
 ## Requirements
 
+The Arlo Codex agent also has a three-level current-tab reader. See
+[the tool contract](docs/current-tab-tool.md) for `compact`, `detailed`, and live `html` reads,
+automatic registration, browser permissions and setup.
+
 - Node.js 24 (`.nvmrc` pins it; `nvm use` or `fnm use` picks it up)
 - Chrome 124+
 - `zip` on PATH for packaging (`make package`)
