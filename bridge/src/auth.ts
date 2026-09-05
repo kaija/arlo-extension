@@ -27,9 +27,13 @@ export function tokenMatches(expected: string, presented: string | undefined): b
  * A browser always sends Origin on a cross-origin request, so a page cannot
  * omit it to slip through. Requests with no Origin at all are non-browser
  * callers (curl, tests) and are still gated by the token.
+ *
+ * The extension is always allowed. ARLO_ALLOWED_ORIGINS *adds* to that rather
+ * than replacing it — setting it to let a dev page in must not quietly lock the
+ * panel out, which is exactly what it used to do.
  */
 export function originAllowed(origin: string | undefined, allowed: readonly string[]): boolean {
   if (!origin) return true;
-  if (allowed.length === 0) return origin.startsWith('chrome-extension://');
+  if (origin.startsWith('chrome-extension://')) return true;
   return allowed.includes(origin);
 }

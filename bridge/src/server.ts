@@ -6,7 +6,10 @@
  * binds 127.0.0.1 only, requires a bearer token minted at startup, and gives
  * every chat session its own folder that the agent is sandboxed to.
  *
- *   GET  /health                    liveness + workspace root
+ *   GET  /health                    liveness only; no auth, so a panel with no
+ *                                   token can still tell a dead bridge apart
+ *   GET  /verify                    the same checks a real call makes, so
+ *                                   "connected" cannot mean "reachable but unusable"
  *   POST /sessions                  create a session folder
  *   POST /sessions/:id/messages     run one turn, streaming SSE
  */
@@ -129,6 +132,11 @@ const server = createServer((req, res) => {
     }
 
     try {
+      if (url.pathname === '/verify' && req.method === 'GET') {
+        send(res, 200, { ok: true, workspaceRoot: ROOT });
+        return;
+      }
+
       if (url.pathname === '/sessions' && req.method === 'POST') {
         const session = await createSession(ROOT);
         send(res, 201, session);

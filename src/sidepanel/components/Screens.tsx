@@ -23,7 +23,7 @@ export function ModelSetupScreen() {
 }
 
 interface BridgeScreenProps {
-  status: 'offline' | 'forbidden' | 'unconfigured';
+  status: 'offline' | 'forbidden' | 'unauthorized' | 'rejected' | 'unconfigured';
   url: string;
   onAllow: () => void;
   onRetry: () => void;
@@ -51,6 +51,40 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
             onClick={() => chrome.runtime.openOptionsPage()}
           >
             Open settings
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthorized' || status === 'rejected') {
+    const badToken = status === 'unauthorized';
+    return (
+      <div className="screen">
+        <div className="screen__group">
+          <h1 className="screen__title">
+            {badToken ? 'The bridge rejected the token' : 'The bridge rejected this panel'}
+          </h1>
+          <p className="screen__lead">
+            {badToken
+              ? 'It is running and reachable. The token changes every time it restarts unless you set ARLO_BRIDGE_TOKEN — copy the one it printed.'
+              : 'It is running and reachable, but it will not accept requests from this extension. Check ARLO_ALLOWED_ORIGINS where the bridge was started.'}
+          </p>
+        </div>
+        <div className="screen__actions">
+          <button
+            type="button"
+            className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
+            onClick={() => chrome.runtime.openOptionsPage()}
+          >
+            {badToken ? 'Open settings' : 'Open settings'}
+          </button>
+          <button
+            type="button"
+            className="panel-btn panel-btn--sm panel-btn--ghost panel-btn--block"
+            onClick={onRetry}
+          >
+            Try again
           </button>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../
 import { LlmProfiles } from './LlmProfiles';
 import { Alert, Field } from './controls';
 
-type BridgeState = 'unknown' | 'checking' | 'online' | 'offline';
+type BridgeState = 'unknown' | 'checking' | 'online' | 'offline' | 'unauthorized' | 'rejected';
 
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -39,11 +39,19 @@ export function Options() {
     setGranted(await chrome.permissions.request({ origins: BRIDGE_HOST_PERMISSIONS }));
   };
 
+  /**
+   * Checks the authenticated route, not just liveness. /health answers without
+   * a token, so testing that reported "online" while every real request was
+   * being refused.
+   */
   const checkBridge = async () => {
     setBridge('checking');
     try {
-      const response = await fetch(new URL('/health', settings.bridgeUrl));
-      setBridge(response.ok ? 'online' : 'offline');
+      const response = await fetch(new URL('/verify', settings.bridgeUrl), {
+        headers: { authorization: `Bearer ${settings.bridgeToken}` },
+      });
+      if (response.ok) setBridge('online');
+      else setBridge(response.status === 401 ? 'unauthorized' : 'rejected');
     } catch {
       setBridge('offline');
     }
@@ -81,6 +89,12 @@ export function Options() {
             </div>
             {bridge === 'online' ? <span className="badge badge-success">Online</span> : null}
             {bridge === 'offline' ? <span className="badge badge-danger">Offline</span> : null}
+            {bridge === 'unauthorized' ? (
+              <span className="badge badge-warning">Token rejected</span>
+            ) : null}
+            {bridge === 'rejected' ? (
+              <span className="badge badge-warning">Origin rejected</span>
+            ) : null}
           </div>
 
           {!granted ? (

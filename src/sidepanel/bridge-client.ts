@@ -70,7 +70,18 @@ function headers(config: BridgeConfig): Record<string, string> {
  * and a dead server look identical from inside `catch`, and telling someone to
  * start a process that is already running wastes their time.
  */
-export type BridgeStatus = 'checking' | 'ok' | 'offline' | 'forbidden' | 'unconfigured';
+export type BridgeStatus =
+  | 'checking'
+  | 'ok'
+  /** Nothing is listening. */
+  | 'offline'
+  /** Chrome blocked the request before it left the browser. */
+  | 'forbidden'
+  /** The bridge is up but will not accept our token. */
+  | 'unauthorized'
+  /** The bridge is up but will not accept our origin. */
+  | 'rejected'
+  | 'unconfigured';
 
 /**
  * The host pattern Chrome needs in order to let the panel reach the bridge.
@@ -101,16 +112,29 @@ export async function requestHostAccess(pattern: string): Promise<boolean> {
   return chrome.permissions.request({ origins: [pattern] });
 }
 
+/**
+ * Probes the route a real call goes through, not just liveness. /health is open
+ * on purpose — it answers even without a token — so checking only that reported
+ * a healthy bridge while every actual request was being refused.
+ */
 export async function probeBridge(config: BridgeConfig): Promise<BridgeStatus> {
   const pattern = bridgeOriginPattern(config.url);
   if (!pattern) return 'unconfigured';
   if (!(await hasHostAccess(pattern))) return 'forbidden';
+
+  let response: Response;
   try {
-    const response = await fetch(new URL('/health', config.url), { method: 'GET' });
-    return response.ok ? 'ok' : 'offline';
+    response = await fetch(new URL('/verify', config.url), {
+      method: 'GET',
+      headers: { authorization: `Bearer ${config.token}` },
+    });
   } catch {
     return 'offline';
   }
+
+  if (response.status === 401) return 'unauthorized';
+  if (response.status === 403) return 'rejected';
+  return response.ok ? 'ok' : 'offline';
 }
 
 export async function createSession(config: BridgeConfig): Promise<string> {
