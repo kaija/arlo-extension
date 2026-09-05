@@ -953,6 +953,41 @@ button {
   gap: 8px;
 }
 
+/* ------------------------------------------------------------- replies -- */
+
+/*
+ * The agent's own prose. Whitespace is preserved because Codex formats its
+ * answers — lists, code, indentation — and collapsing it loses the shape.
+ */
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 2px 0;
+}
+
+.reply__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.reply--failed .reply__text {
+  color: var(--color-danger);
+}
+
+.reply__working {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 /* -------------------------------------------------- outcome and notices -- */
 
 .outcome {

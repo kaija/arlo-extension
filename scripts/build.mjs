@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 /**
- * Two Vite passes make one extension:
- *   1. the pages and the module service worker
- *   2. the content script, which must be a single IIFE file
- * The second pass appends to dist, so order matters.
+ * One Vite pass makes the extension: the pages and the module service worker.
+ *
+ * A second pass used to build the content script as a single IIFE. The agent
+ * now runs in a local bridge process rather than in the page, so there is no
+ * content script; parked/vite.content.config.ts has that pass if it returns.
  */
 import { build } from 'vite';
 
 const watch = process.argv.includes('--watch');
 
-const passes = [
-  { name: 'pages + service worker', configFile: 'vite.config.ts' },
-  { name: 'content script', configFile: 'vite.content.config.ts' },
-];
+const passes = [{ name: 'pages + service worker', configFile: 'vite.config.ts' }];
 
 for (const pass of passes) {
   console.log(`\n▸ building ${pass.name}`);

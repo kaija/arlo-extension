@@ -1,47 +1,39 @@
-import { suggestionsForHost } from '../../core/suggestions';
-import type { TabInfo } from '../../shared/messages';
-
-interface IdleScreenProps {
-  tab: TabInfo | null;
-  busy: boolean;
-  onSubmit: (prompt: string) => void;
-}
+const STARTERS = [
+  'Sketch a small script and explain how it works',
+  'Draft a plan for a feature, then write the first file',
+  'Create a few files and walk me through the structure',
+];
 
 /**
- * The empty state has to answer "what can this thing do here?", so the examples
- * are drawn from the site the user is actually on. The composer is not here —
- * it lives in the dock, in the same place in every state.
+ * The empty state says what this agent actually is: it works in a folder of its
+ * own, so the examples are things that leave files behind rather than browser
+ * errands.
  */
-export function IdleScreen({ tab, busy, onSubmit }: IdleScreenProps) {
-  const { examples } = suggestionsForHost(tab?.host ?? '');
-
+export function IdleScreen({ busy, onSubmit }: { busy: boolean; onSubmit: (p: string) => void }) {
   return (
     <div className="idle">
       <div className="idle__intro">
-        <h1 className="idle__title">What should Arlo do here?</h1>
+        <h1 className="idle__title">What should Arlo work on?</h1>
         <p className="idle__lead">
-          Describe a task in plain words. Arlo shows you a plan before it touches anything.
+          Arlo runs a Codex agent in a folder of its own for this chat. It can read and write there,
+          and nowhere else.
         </p>
       </div>
 
       <div className="suggestions">
-        <div className="eyebrow">{tab?.host ? `Try on ${tab.host}` : 'Try one of these'}</div>
-        {examples.map((example) => (
+        <div className="eyebrow">Try one of these</div>
+        {STARTERS.map((starter) => (
           <button
-            key={example}
+            key={starter}
             type="button"
             className="suggestion"
             disabled={busy}
-            onClick={() => onSubmit(example)}
+            onClick={() => onSubmit(starter)}
           >
-            {example}
+            {starter}
           </button>
         ))}
       </div>
-
-      <p className="idle__footnote">
-        Arlo pauses before anything it can’t undo — orders, messages, sign-ins, deletions.
-      </p>
     </div>
   );
 }

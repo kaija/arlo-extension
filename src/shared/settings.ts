@@ -1,6 +1,3 @@
-import { DEFAULT_GATED_ACTIONS } from '../core/gate-policy';
-import type { ActionKind } from '../core/types';
-
 export const LLM_API_CONTRACTS = [
   'anthropic-messages',
   'openai-responses',
@@ -40,16 +37,12 @@ export interface LlmProfileSummary {
 }
 
 export interface Settings {
-  /** The global brake: when true Arlo will not act on any site. */
-  pausedEverywhere: boolean;
-  /** Hostnames Arlo must never operate on. */
-  blockedDomains: string[];
-  /** Which actions stop for confirmation. */
-  gatedActions: ActionKind[];
   llmProfiles: LlmProfile[];
   defaultLlmProfileId: string | null;
-  /** 0 keeps nothing; run history older than this is dropped. */
-  historyRetentionDays: number;
+  /** Where the Codex bridge is listening. */
+  bridgeUrl: string;
+  /** The bearer token the bridge printed at startup. */
+  bridgeToken: string;
   onboardingCompleted: boolean;
 }
 
@@ -65,12 +58,10 @@ export const DEFAULT_BLOCKED_DOMAINS = [
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
-  pausedEverywhere: false,
-  blockedDomains: DEFAULT_BLOCKED_DOMAINS,
-  gatedActions: DEFAULT_GATED_ACTIONS,
   llmProfiles: [],
   defaultLlmProfileId: null,
-  historyRetentionDays: 30,
+  bridgeUrl: 'http://127.0.0.1:4319',
+  bridgeToken: '',
   onboardingCompleted: false,
 };
 
@@ -243,22 +234,16 @@ function normalizeSettings(value: unknown): Settings {
       ? candidate.defaultLlmProfileId
       : null;
   return {
-    pausedEverywhere:
-      typeof candidate.pausedEverywhere === 'boolean'
-        ? candidate.pausedEverywhere
-        : DEFAULT_SETTINGS.pausedEverywhere,
-    blockedDomains: Array.isArray(candidate.blockedDomains)
-      ? candidate.blockedDomains.filter((domain): domain is string => typeof domain === 'string')
-      : [...DEFAULT_BLOCKED_DOMAINS],
-    gatedActions: Array.isArray(candidate.gatedActions)
-      ? candidate.gatedActions
-      : [...DEFAULT_GATED_ACTIONS],
     llmProfiles,
     defaultLlmProfileId,
-    historyRetentionDays:
-      typeof candidate.historyRetentionDays === 'number'
-        ? candidate.historyRetentionDays
-        : DEFAULT_SETTINGS.historyRetentionDays,
+    bridgeUrl:
+      typeof candidate.bridgeUrl === 'string' && candidate.bridgeUrl.trim()
+        ? candidate.bridgeUrl.trim()
+        : DEFAULT_SETTINGS.bridgeUrl,
+    bridgeToken:
+      typeof candidate.bridgeToken === 'string'
+        ? candidate.bridgeToken
+        : DEFAULT_SETTINGS.bridgeToken,
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'
         ? candidate.onboardingCompleted

@@ -18,13 +18,13 @@ describe('settings', () => {
   });
 
   it('merges a patch over what is stored', async () => {
-    await saveSettings({ pausedEverywhere: true });
-    const profile = { ...createLlmProfile('anthropic-messages'), model: 'claude-sonnet-5' };
+    await saveSettings({ bridgeToken: 'token-abc' });
+    const profile = { ...createLlmProfile('openai-responses'), model: 'gpt-5.6-terra' };
     await saveSettings({ llmProfiles: [profile], defaultLlmProfileId: profile.id });
     const settings = await loadSettings();
-    expect(settings.pausedEverywhere).toBe(true);
-    expect(getDefaultLlmProfile(settings)?.model).toBe('claude-sonnet-5');
-    expect(settings.blockedDomains).toEqual(DEFAULT_SETTINGS.blockedDomains);
+    expect(settings.bridgeToken).toBe('token-abc');
+    expect(getDefaultLlmProfile(settings)?.model).toBe('gpt-5.6-terra');
+    expect(settings.bridgeUrl).toBe(DEFAULT_SETTINGS.bridgeUrl);
   });
 
   it('keeps session-only API keys out of local settings', async () => {
@@ -58,9 +58,9 @@ describe('settings', () => {
   it('notifies subscribers when settings change', async () => {
     let seen = false;
     const unsubscribe = onSettingsChanged((settings) => {
-      seen = settings.pausedEverywhere;
+      seen = settings.bridgeToken === 'watched';
     });
-    await saveSettings({ pausedEverywhere: true });
+    await saveSettings({ bridgeToken: 'watched' });
     unsubscribe();
     expect(seen).toBe(true);
   });
