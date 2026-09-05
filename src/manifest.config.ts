@@ -4,7 +4,7 @@
  * The agent runs in a local bridge process, not in the page, so the extension
  * needs no access to the sites you visit — only to loopback.
  */
-export const BRIDGE_HOST_PERMISSION = 'http://127.0.0.1/*';
+export const BRIDGE_HOST_PERMISSIONS = ['http://127.0.0.1/*', 'http://localhost/*'];
 
 export function createManifest(version: string): chrome.runtime.ManifestV3 {
   return {
@@ -33,6 +33,6 @@ export function createManifest(version: string): chrome.runtime.ManifestV3 {
     options_page: 'options/index.html',
     permissions: ['sidePanel', 'storage'],
     // Granted in context from settings, once a bridge URL is configured.
-    optional_host_permissions: [BRIDGE_HOST_PERMISSION],
+    optional_host_permissions: BRIDGE_HOST_PERMISSIONS,
   };
 }

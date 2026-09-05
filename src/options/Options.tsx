@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Logo } from '../design-system/icons';
-import { BRIDGE_HOST_PERMISSION } from '../manifest.config';
+import { BRIDGE_HOST_PERMISSIONS } from '../manifest.config';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../shared/settings';
 import { LlmProfiles } from './LlmProfiles';
 import { Alert, Field } from './controls';
@@ -21,7 +21,7 @@ export function Options() {
       setLoaded(true);
     });
     void chrome.permissions
-      .contains({ origins: [BRIDGE_HOST_PERMISSION] })
+      .contains({ origins: BRIDGE_HOST_PERMISSIONS })
       .then(setGranted)
       .catch(() => setGranted(false));
   }, []);
@@ -36,7 +36,7 @@ export function Options() {
 
   /** Chrome only grants an optional permission inside a click handler. */
   const allowLoopback = async () => {
-    setGranted(await chrome.permissions.request({ origins: [BRIDGE_HOST_PERMISSION] }));
+    setGranted(await chrome.permissions.request({ origins: BRIDGE_HOST_PERMISSIONS }));
   };
 
   const checkBridge = async () => {

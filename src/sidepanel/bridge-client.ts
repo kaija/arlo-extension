@@ -65,12 +65,51 @@ function headers(config: BridgeConfig): Record<string, string> {
   return { authorization: `Bearer ${config.token}`, 'content-type': 'application/json' };
 }
 
-export async function bridgeOnline(config: BridgeConfig): Promise<boolean> {
+/**
+ * Why the bridge is unreachable, rather than just that it is. A blocked fetch
+ * and a dead server look identical from inside `catch`, and telling someone to
+ * start a process that is already running wastes their time.
+ */
+export type BridgeStatus = 'checking' | 'ok' | 'offline' | 'forbidden' | 'unconfigured';
+
+/**
+ * The host pattern Chrome needs in order to let the panel reach the bridge.
+ * Match patterns carry no port, so the configured one is dropped on purpose.
+ */
+export function bridgeOriginPattern(url: string): string | null {
   try {
-    const response = await fetch(new URL('/health', config.url), { method: 'GET' });
-    return response.ok;
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return `${parsed.protocol}//${parsed.hostname}/*`;
+  } catch {
+    return null;
+  }
+}
+
+export async function hasHostAccess(pattern: string): Promise<boolean> {
+  // Outside an extension — tests, the preview harness — there is nothing to grant.
+  if (typeof chrome === 'undefined' || !chrome.permissions) return true;
+  try {
+    return await chrome.permissions.contains({ origins: [pattern] });
   } catch {
     return false;
+  }
+}
+
+/** Must run inside a click: Chrome only grants optional permissions on a gesture. */
+export async function requestHostAccess(pattern: string): Promise<boolean> {
+  return chrome.permissions.request({ origins: [pattern] });
+}
+
+export async function probeBridge(config: BridgeConfig): Promise<BridgeStatus> {
+  const pattern = bridgeOriginPattern(config.url);
+  if (!pattern) return 'unconfigured';
+  if (!(await hasHostAccess(pattern))) return 'forbidden';
+  try {
+    const response = await fetch(new URL('/health', config.url), { method: 'GET' });
+    return response.ok ? 'ok' : 'offline';
+  } catch {
+    return 'offline';
   }
 }
 

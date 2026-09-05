@@ -21,7 +21,16 @@ export function App() {
   }, [count]);
 
   const body = () => {
-    if (chat.online === false) return <BridgeOfflineScreen url={chat.bridgeUrl} />;
+    if (chat.status !== 'ok' && chat.status !== 'checking') {
+      return (
+        <BridgeOfflineScreen
+          status={chat.status}
+          url={chat.bridgeUrl}
+          onAllow={() => void chat.allowAccess()}
+          onRetry={chat.recheck}
+        />
+      );
+    }
     if (!chat.configured) return <ModelSetupScreen />;
     if (count === 0) return <IdleScreen busy={chat.session.running} onSubmit={chat.send} />;
     return (
@@ -31,7 +40,7 @@ export function App() {
     );
   };
 
-  const ready = chat.online !== false && chat.configured;
+  const ready = chat.status === 'ok' && chat.configured;
 
   return (
     <div className="panel">

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   agentMessageText,
+  bridgeOriginPattern,
   parseSseChunk,
   turnError,
   type SseFrame,
@@ -57,5 +58,20 @@ describe('reading Codex events', () => {
     );
     expect(turnError(frame('turn.failed', { error: 'plain string' }))).toBe('plain string');
     expect(turnError(frame('item.completed', {}))).toBeNull();
+  });
+});
+
+describe('reaching the bridge', () => {
+  it('derives the host pattern Chrome needs, without the port', () => {
+    // Match patterns carry no port, so including one makes the pattern invalid.
+    expect(bridgeOriginPattern('http://127.0.0.1:4319')).toBe('http://127.0.0.1/*');
+    expect(bridgeOriginPattern('http://localhost:9999/')).toBe('http://localhost/*');
+    expect(bridgeOriginPattern('https://bridge.example:8443')).toBe('https://bridge.example/*');
+  });
+
+  it('has no pattern for an address it cannot use', () => {
+    for (const bad of ['', 'not a url', 'ftp://127.0.0.1', 'file:///tmp']) {
+      expect(bridgeOriginPattern(bad)).toBeNull();
+    }
   });
 });

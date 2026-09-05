@@ -15,7 +15,7 @@ ZIP := release/arlo-extension-$(VERSION).zip
 
 # Anything that ends up in the build, so `make build` is a no-op when nothing changed.
 SOURCES := $(shell find src public -type f 2>/dev/null) \
-           vite.config.ts vite.content.config.ts package.json
+           vite.config.ts scripts/build.mjs package.json
 
 .DEFAULT_GOAL := help
 

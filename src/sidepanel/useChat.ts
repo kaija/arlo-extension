@@ -2,7 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { emptySession, type ChatMessage, type ChatSession } from '../core/chat';
 import { newId } from '../shared/messages';
-import { bridgeOnline, createSession, streamTurn, type BridgeConfig } from './bridge-client';
+import {
+  bridgeOriginPattern,
+  createSession,
+  probeBridge,
+  requestHostAccess,
+  streamTurn,
+  type BridgeConfig,
+  type BridgeStatus,
+} from './bridge-client';
 import {
   getDefaultLlmProfile,
   getDefaultLlmProfileSummary,
@@ -16,13 +24,16 @@ export interface Chat {
   session: ChatSession;
   bridgeUrl: string;
   profile: LlmProfileSummary | null;
-  /** Null until the first health check has answered. */
-  online: boolean | null;
+  /** Why the bridge is or is not reachable. 'checking' until the first probe. */
+  status: BridgeStatus;
   configured: boolean;
   error: string | null;
   send: (text: string) => Promise<void>;
   reset: () => void;
   dismissError: () => void;
+  /** Grant Chrome access to the bridge's host. Must be called from a click. */
+  allowAccess: () => Promise<void>;
+  recheck: () => void;
 }
 
 function message(role: ChatMessage['role'], text: string, extra: Partial<ChatMessage> = {}) {
@@ -32,7 +43,8 @@ function message(role: ChatMessage['role'], text: string, extra: Partial<ChatMes
 export function useChat(): Chat {
   const [session, setSession] = useState<ChatSession>(emptySession);
   const [profile, setProfile] = useState<LlmProfileSummary | null>(null);
-  const [online, setOnline] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<BridgeStatus>('checking');
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // The bridge config is state, not a ref: `configured` is read during render,
   // and a ref would not re-render the panel when settings change.
@@ -43,11 +55,9 @@ export function useChat(): Chat {
     let live = true;
     const apply = (settings: Awaited<ReturnType<typeof loadSettings>>) => {
       if (!live) return;
-      const next = { url: settings.bridgeUrl, token: settings.bridgeToken };
-      setConfig(next);
+      setConfig({ url: settings.bridgeUrl, token: settings.bridgeToken });
       full.current = getDefaultLlmProfile(settings);
       setProfile(getDefaultLlmProfileSummary(settings));
-      void bridgeOnline(next).then((up) => live && setOnline(up));
     };
     void loadSettings().then(apply);
     const stop = onSettingsChanged(apply);
@@ -56,6 +66,33 @@ export function useChat(): Chat {
       stop();
     };
   }, []);
+
+  /*
+   * Keep probing while the bridge is unreachable. The offline screen tells the
+   * reader it will connect on its own, so it has to actually do that — starting
+   * the bridge or granting access should be enough, with nothing to click.
+   */
+  useEffect(() => {
+    if (!config.url) return;
+    let live = true;
+    void probeBridge(config).then((next) => live && setStatus(next));
+    return () => {
+      live = false;
+    };
+  }, [config, attempt]);
+
+  useEffect(() => {
+    if (status === 'ok' || status === 'checking') return;
+    const timer = setInterval(() => setAttempt((n) => n + 1), 4000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const allowAccess = useCallback(async () => {
+    const pattern = bridgeOriginPattern(config.url);
+    if (!pattern) return;
+    await requestHostAccess(pattern);
+    setAttempt((n) => n + 1);
+  }, [config.url]);
 
   const send = useCallback(
     async (text: string) => {
@@ -116,11 +153,13 @@ export function useChat(): Chat {
     session,
     bridgeUrl: config.url,
     profile,
-    online,
+    status,
     configured: !!profile && !!config.token,
     error,
     send,
     reset: () => setSession(emptySession),
     dismissError: () => setError(null),
+    allowAccess,
+    recheck: () => setAttempt((n) => n + 1),
   };
 }
