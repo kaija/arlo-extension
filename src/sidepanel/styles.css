@@ -13,6 +13,15 @@ body {
   height: 100%;
 }
 
+/*
+ * React mounts here. Without a height the 100% chain breaks at the mount point,
+ * the panel collapses to its content, and the dock floats up under the last
+ * message instead of sitting on the bottom edge.
+ */
+#root {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--surface-page);
