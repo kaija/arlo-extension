@@ -7,10 +7,12 @@ import { IdleScreen } from './components/IdleScreen';
 import { MessageList } from './components/MessageList';
 import { PanelHeader } from './components/PanelHeader';
 import { BridgeOfflineScreen, ModelSetupScreen } from './components/Screens';
+import { useActivePage } from './useActivePage';
 import { useChat } from './useChat';
 
 export function App() {
   const chat = useChat();
+  const page = useActivePage();
   const thread = useRef<HTMLDivElement>(null);
   const count = chat.session.messages.length;
 
@@ -32,7 +34,8 @@ export function App() {
       );
     }
     if (!chat.configured) return <ModelSetupScreen />;
-    if (count === 0) return <IdleScreen busy={chat.session.running} onSubmit={chat.send} />;
+    if (count === 0)
+      return <IdleScreen busy={chat.session.running} page={page} onSubmit={chat.send} />;
     return (
       <div className="thread" ref={thread}>
         <MessageList messages={chat.session.messages} />

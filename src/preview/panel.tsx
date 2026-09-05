@@ -44,6 +44,17 @@ Object.assign(globalThis, {
       openOptionsPage: noop,
       onMessage: { addListener: noop, removeListener: noop },
     },
+    tabs: {
+      query: async () => [
+        {
+          active: true,
+          title: 'Inbox - Gmail',
+          url: params.get('page') ?? 'https://mail.google.com/mail/u/0/#inbox',
+        },
+      ],
+      onActivated: { addListener: noop, removeListener: noop },
+      onUpdated: { addListener: noop, removeListener: noop },
+    },
     // `granted=0` in the query string reproduces the blocked-permission screen.
     permissions: {
       contains: async () => params.get('granted') !== '0',
