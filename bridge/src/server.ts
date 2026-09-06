@@ -116,6 +116,9 @@ async function runTurn(
       'cache-control': 'no-store',
       connection: 'keep-alive',
     });
+    // Send the stream headers before Codex produces its first line so the
+    // browser can begin consuming each later update without header buffering.
+    res.flushHeaders();
 
     const { events } = await thread.runStreamed(prompt, { signal: abort.signal });
     for await (const event of events) {

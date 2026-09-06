@@ -975,17 +975,85 @@ button {
   padding: 2px 2px 0;
 }
 
-.reply__text {
-  margin: 0;
+.reply__markdown {
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--text-body);
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
 
-.reply--failed .reply__text {
+.reply__markdown > :first-child {
+  margin-top: 0;
+}
+
+.reply__markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.reply__markdown p,
+.reply__markdown ul,
+.reply__markdown ol,
+.reply__markdown blockquote,
+.reply__markdown pre,
+.reply__markdown table {
+  margin: 0 0 10px;
+}
+
+.reply__markdown ul,
+.reply__markdown ol {
+  padding-left: 20px;
+}
+
+.reply__markdown li + li {
+  margin-top: 4px;
+}
+
+.reply__markdown a {
+  color: var(--color-accent);
+}
+
+.reply__markdown blockquote {
+  padding-left: 10px;
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--text-muted);
+}
+
+.reply__markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-sunken);
+}
+
+.reply__markdown pre {
+  overflow-x: auto;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.reply__markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.reply__markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.reply__markdown th,
+.reply__markdown td {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-strong);
+  text-align: left;
+}
+
+.reply--failed .reply__markdown {
   color: var(--color-danger);
 }
 

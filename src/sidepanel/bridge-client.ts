@@ -18,6 +18,14 @@ export interface SseFrame {
   data: unknown;
 }
 
+/** The latest complete snapshot of one assistant message in a streamed turn. */
+export interface AgentMessageUpdate {
+  id: string;
+  text: string;
+  /** The message will not receive any more snapshots. */
+  completed: boolean;
+}
+
 /**
  * Split whatever has arrived so far into complete frames, returning the
  * remainder so the next chunk can be appended to it. A frame is only ever
@@ -47,10 +55,22 @@ export function parseSseChunk(buffer: string): { frames: SseFrame[]; rest: strin
 }
 
 /** The assistant's prose, as opposed to the agent's tool and file activity. */
-export function agentMessageText(frame: SseFrame): string | null {
-  if (frame.event !== 'item.completed') return null;
-  const item = (frame.data as { item?: { type?: string; text?: string } })?.item;
-  return item?.type === 'agent_message' && typeof item.text === 'string' ? item.text : null;
+export function agentMessageText(frame: SseFrame): AgentMessageUpdate | null {
+  const isItemEvent =
+    frame.event === 'item.started' ||
+    frame.event === 'item.updated' ||
+    frame.event === 'item.completed';
+  if (!isItemEvent) return null;
+
+  const item = (frame.data as { item?: { id?: string; type?: string; text?: string } })?.item;
+  if (
+    item?.type !== 'agent_message' ||
+    typeof item.id !== 'string' ||
+    typeof item.text !== 'string'
+  )
+    return null;
+
+  return { id: item.id, text: item.text, completed: frame.event === 'item.completed' };
 }
 
 export function turnError(frame: SseFrame): string | null {
@@ -190,7 +210,7 @@ async function readError(response: Response): Promise<string> {
 }
 
 export interface TurnHandlers {
-  onText: (text: string) => void;
+  onText: (message: AgentMessageUpdate) => void;
   onError: (message: string) => void;
   onPageRead?: (options: unknown) => Promise<TabReadResult>;
 }

@@ -15,12 +15,13 @@ export function App() {
   const page = useActivePage();
   const thread = useRef<HTMLDivElement>(null);
   const count = chat.session.messages.length;
+  const latestText = chat.session.messages.at(-1)?.text;
 
   // Follow the transcript down as it grows.
   useEffect(() => {
     const el = thread.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [count]);
+  }, [count, latestText]);
 
   const body = () => {
     if (chat.status !== 'ok' && chat.status !== 'checking') {

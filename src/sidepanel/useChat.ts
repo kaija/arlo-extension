@@ -9,6 +9,7 @@ import {
   probeBridge,
   requestHostAccess,
   streamTurn,
+  type AgentMessageUpdate,
   type BridgeConfig,
   type BridgeStatus,
 } from './bridge-client';
@@ -137,7 +138,42 @@ export function useChat(): Chat {
           setSession((current) => ({ ...current, id }));
         }
 
+        const messageOrder: string[] = [];
+        const latestText = new Map<string, string>();
+        const visibleText = new Map<string, string>();
         let answer = '';
+        let failed = false;
+
+        const composeAnswer = () =>
+          messageOrder
+            .map((messageId) => visibleText.get(messageId) ?? '')
+            .filter(Boolean)
+            .join('\n\n');
+
+        const flushText = () => {
+          for (const messageId of messageOrder)
+            visibleText.set(messageId, latestText.get(messageId) ?? '');
+          answer = composeAnswer();
+        };
+
+        const updateText = ({ id: messageId, text: snapshot, completed }: AgentMessageUpdate) => {
+          if (!latestText.has(messageId)) messageOrder.push(messageId);
+          latestText.set(messageId, snapshot);
+
+          // A Codex item update is a complete snapshot, not an appended delta.
+          // Show each completed line immediately, while holding the unfinished
+          // tail until it has a newline (or the message itself completes).
+          const newline = snapshot.lastIndexOf('\n');
+          const rendered = completed
+            ? snapshot
+            : newline === -1
+              ? ''
+              : snapshot.slice(0, newline + 1);
+          visibleText.set(messageId, rendered);
+          answer = composeAnswer();
+          replace({ text: answer });
+        };
+
         await streamTurn(
           config,
           id,
@@ -145,11 +181,10 @@ export function useChat(): Chat {
           profileForTurn,
           {
             onPageRead: (options) => readCurrentTab(windowId, options),
-            onText: (chunk) => {
-              answer = answer ? `${answer}\n\n${chunk}` : chunk;
-              replace({ text: answer });
-            },
+            onText: updateText,
             onError: (reason) => {
+              failed = true;
+              flushText();
               answer = answer ? `${answer}\n\n${reason}` : reason;
               replace({ text: answer, failed: true });
             },
@@ -157,7 +192,11 @@ export function useChat(): Chat {
           controller.signal,
         );
 
-        replace({ streaming: false, ...(answer ? {} : { text: 'The agent returned nothing.' }) });
+        // Codex normally emits item.completed, but never leave a final partial
+        // line hidden if a compatible bridge ends the stream immediately after
+        // an item update.
+        if (!failed) flushText();
+        replace({ streaming: false, text: answer || 'The agent returned nothing.' });
       } catch (cause) {
         if (controller.signal.aborted) return;
         const reason = cause instanceof Error ? cause.message : String(cause);

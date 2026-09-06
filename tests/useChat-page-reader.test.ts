@@ -42,7 +42,11 @@ describe('Arlo agent page-reader integration', () => {
     vi.mocked(streamTurn).mockImplementation(async (_config, _id, _prompt, _profile, handlers) => {
       expect(readCurrentTab).not.toHaveBeenCalled();
       await handlers.onPageRead?.({ level: 'detailed' });
-      handlers.onText('The page could not be read.');
+      handlers.onText({
+        id: 'agent-message-1',
+        text: 'The page could not be read.',
+        completed: true,
+      });
     });
     const { result } = renderHook(useChat);
     await waitFor(() => expect(result.current.status).toBe('ok'));

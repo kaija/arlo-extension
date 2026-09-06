@@ -1,3 +1,6 @@
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 import type { ChatMessage } from '../../core/chat';
 
 /**
@@ -19,7 +22,23 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
           </section>
         ) : (
           <section className={`reply${message.failed ? ' reply--failed' : ''}`} key={message.id}>
-            {message.text ? <p className="reply__text">{message.text}</p> : null}
+            {message.text ? (
+              <div className="reply__markdown">
+                <Markdown
+                  remarkPlugins={[remarkGfm]}
+                  skipHtml
+                  components={{
+                    a: ({ children, href }) => (
+                      <a href={href} target="_blank" rel="noreferrer">
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {message.text}
+                </Markdown>
+              </div>
+            ) : null}
             {message.streaming ? (
               <span className="reply__working">
                 <span className="planning__spinner" aria-hidden="true" />

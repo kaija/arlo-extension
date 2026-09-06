@@ -42,13 +42,26 @@ describe('SSE parsing', () => {
 describe('reading Codex events', () => {
   const frame = (event: string, data: unknown): SseFrame => ({ event, data });
 
-  it('takes prose from an agent message and ignores the agent’s other work', () => {
+  it('takes cumulative prose snapshots from agent messages and ignores the agent’s other work', () => {
     expect(
-      agentMessageText(frame('item.completed', { item: { type: 'agent_message', text: 'Hello' } })),
-    ).toBe('Hello');
+      agentMessageText(
+        frame('item.updated', {
+          item: { id: 'message-1', type: 'agent_message', text: 'Hello' },
+        }),
+      ),
+    ).toEqual({ id: 'message-1', text: 'Hello', completed: false });
+    expect(
+      agentMessageText(
+        frame('item.completed', {
+          item: { id: 'message-1', type: 'agent_message', text: 'Hello, world.' },
+        }),
+      ),
+    ).toEqual({ id: 'message-1', text: 'Hello, world.', completed: true });
     // Command runs and file edits are activity, not the reply.
     expect(
-      agentMessageText(frame('item.completed', { item: { type: 'command_execution' } })),
+      agentMessageText(
+        frame('item.completed', { item: { id: 'command-1', type: 'command_execution' } }),
+      ),
     ).toBeNull();
     expect(agentMessageText(frame('turn.completed', {}))).toBeNull();
   });
@@ -88,7 +101,7 @@ describe('page read requests during a streamed turn', () => {
               );
               controller.enqueue(
                 encoder.encode(
-                  'event: item.completed\ndata: {"item":{"type":"agent_message","text":"Please grant access."}}\n\n',
+                  'event: item.completed\ndata: {"item":{"id":"message-1","type":"agent_message","text":"Please grant access."}}\n\n',
                 ),
               );
               controller.close();
@@ -116,7 +129,11 @@ describe('page read requests during a streamed turn', () => {
     );
     expect(JSON.parse(fetchMock.mock.calls[1]?.[1].body)).toEqual(result);
     expect(fetchMock.mock.calls[1]?.[1].headers.authorization).toBe('Bearer test');
-    expect(onText).toHaveBeenCalledWith('Please grant access.');
+    expect(onText).toHaveBeenCalledWith({
+      id: 'message-1',
+      text: 'Please grant access.',
+      completed: true,
+    });
   });
 
   it('reports an old panel without a reader and tolerates replies to expired requests', async () => {
@@ -137,6 +154,62 @@ describe('page read requests during a streamed turn', () => {
       ok: false,
       error: { code: 'READER_UNAVAILABLE' },
     });
+  });
+});
+
+describe('assistant snapshots during a streamed turn', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('forwards each item.updated snapshot before the completed snapshot without duplicates', async () => {
+    const encoder = new TextEncoder();
+    const onText = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  'event: item.started\ndata: {"item":{"id":"message-1","type":"agent_message","text":""}}\n\n',
+                ),
+              );
+              controller.enqueue(
+                encoder.encode(
+                  'event: item.updated\ndata: {"item":{"id":"message-1","type":"agent_message","text":"First line\\n"}}\n\n',
+                ),
+              );
+              controller.enqueue(
+                encoder.encode(
+                  'event: item.updated\ndata: {"item":{"id":"message-1","type":"agent_message","text":"First line\\nSecond line"}}\n\n',
+                ),
+              );
+              controller.enqueue(
+                encoder.encode(
+                  'event: item.completed\ndata: {"item":{"id":"message-1","type":"agent_message","text":"First line\\nSecond line."}}\n\n',
+                ),
+              );
+              controller.close();
+            },
+          }),
+        ),
+      ),
+    );
+
+    await streamTurn(
+      { url: 'http://127.0.0.1:4319', token: '' },
+      'session',
+      'Say hello',
+      {},
+      { onText, onError: vi.fn() },
+    );
+
+    expect(onText.mock.calls.map(([snapshot]) => snapshot)).toEqual([
+      { id: 'message-1', text: '', completed: false },
+      { id: 'message-1', text: 'First line\n', completed: false },
+      { id: 'message-1', text: 'First line\nSecond line', completed: false },
+      { id: 'message-1', text: 'First line\nSecond line.', completed: true },
+    ]);
   });
 });
 
