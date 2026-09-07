@@ -8,7 +8,6 @@ import type { ReactNode } from 'react';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
-  CheckIcon,
   ChevronIcon,
   CloseIcon,
   InfoIcon,
@@ -69,30 +68,6 @@ export function Switch({ checked, label, disabled, onChange }: SwitchProps) {
       />
       <span className="switch-track">
         <span className="switch-knob" />
-      </span>
-      <span>{label}</span>
-    </label>
-  );
-}
-
-interface CheckboxProps {
-  checked: boolean;
-  label: ReactNode;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-export function Checkbox({ checked, label, disabled, onChange }: CheckboxProps) {
-  return (
-    <label className={cx('check', disabled && 'check-disabled')}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className="check-box">
-        <CheckIcon className="check-tick" size={12} strokeWidth={3} />
       </span>
       <span>{label}</span>
     </label>

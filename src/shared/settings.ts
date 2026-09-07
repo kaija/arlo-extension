@@ -41,31 +41,15 @@ export interface LlmProfileSummary {
 export interface Settings {
   llmProfiles: LlmProfile[];
   defaultLlmProfileId: string | null;
-  /** Where the Codex bridge is listening. */
-  bridgeUrl: string;
-  /** The bearer token the bridge printed at startup. */
-  bridgeToken: string;
   /** Dark, light, or whatever the OS is set to. */
   theme: ThemePreference;
   onboardingCompleted: boolean;
 }
 
 /** Money and mail are blocked out of the box; the user can edit the list. */
-export const DEFAULT_BLOCKED_DOMAINS = [
-  'accounts.google.com',
-  'mail.google.com',
-  'outlook.com',
-  'chase.com',
-  'bankofamerica.com',
-  'wellsfargo.com',
-  'paypal.com',
-];
-
 export const DEFAULT_SETTINGS: Settings = {
   llmProfiles: [],
   defaultLlmProfileId: null,
-  bridgeUrl: 'http://127.0.0.1:4319',
-  bridgeToken: '',
   theme: 'system',
   onboardingCompleted: false,
 };
@@ -241,14 +225,6 @@ function normalizeSettings(value: unknown): Settings {
   return {
     llmProfiles,
     defaultLlmProfileId,
-    bridgeUrl:
-      typeof candidate.bridgeUrl === 'string' && candidate.bridgeUrl.trim()
-        ? candidate.bridgeUrl.trim()
-        : DEFAULT_SETTINGS.bridgeUrl,
-    bridgeToken:
-      typeof candidate.bridgeToken === 'string'
-        ? candidate.bridgeToken
-        : DEFAULT_SETTINGS.bridgeToken,
     theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'

@@ -1,24 +1,7 @@
-/* The three animations the panel uses, verbatim from the ArloPanel design. */
+/* The spinner the panel uses, verbatim from the ArloPanel design. */
 @keyframes arlo-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@keyframes arlo-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-@keyframes arlo-bar {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(300%);
   }
 }
 

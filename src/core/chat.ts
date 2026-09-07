@@ -1,4 +1,4 @@
-/** Domain vocabulary for a chat with the Codex agent. */
+/** Domain vocabulary for a chat with the Arlo agent. */
 
 export type MessageRole = 'user' | 'assistant';
 
@@ -18,7 +18,6 @@ export interface ChatMessage {
  * session id is also the name of the directory it is confined to.
  */
 export interface ChatSession {
-  /** Null until the bridge has created the session folder. */
   id: string | null;
   messages: ChatMessage[];
   /** True while a turn is in flight. */

@@ -1,7 +1,15 @@
 /** The single source of truth for the extension manifest. Built into dist/manifest.json. */
 
-/** Model traffic uses loopback. activeTab only exposes the page the user opened Arlo from. */
-export const BRIDGE_HOST_PERMISSIONS = ['http://127.0.0.1/*', 'http://localhost/*'];
+/** activeTab only exposes the page the user opened Arlo from. */
+/**
+ * Declared so Arlo can ask for one provider origin at a time.
+ * Chrome only grants an optional host permission that the manifest already
+ * lists, and it rejects `permissions.request()` outright for anything else — so
+ * a profile pointed at a remote provider could never reach its /models endpoint.
+ * Nothing here is granted at install: each request names a single concrete
+ * origin the reader chose, and the user can revoke it.
+ */
+export const MODEL_HOST_PERMISSIONS = ['http://*/*', 'https://*/*'];
 
 export function createManifest(version: string): chrome.runtime.ManifestV3 {
   return {
@@ -27,8 +35,9 @@ export function createManifest(version: string): chrome.runtime.ManifestV3 {
       default_path: 'sidepanel/index.html',
     },
     options_page: 'options/index.html',
-    permissions: ['activeTab', 'scripting', 'sidePanel', 'storage'],
-    // Granted in context from settings, once a bridge URL is configured.
-    optional_host_permissions: BRIDGE_HOST_PERMISSIONS,
+    permissions: ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabGroups'],
+    // Granted in context, as one concrete origin: the endpoint a profile points
+    // at, asked for when the panel or the model list first needs to reach it.
+    optional_host_permissions: MODEL_HOST_PERMISSIONS,
   };
 }

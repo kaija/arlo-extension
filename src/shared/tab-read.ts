@@ -1,4 +1,4 @@
-/** The read-only contract shared by the browser and the local agent bridge. */
+/** The read-only contract between the agent and the page it is looking at. */
 export const TAB_READ_MAX_CHARS = 24_000;
 export const TAB_READ_DEFAULT_CHARS = 12_000;
 export type TabReadLevel = 'compact' | 'detailed' | 'html';
@@ -27,11 +27,6 @@ export interface TabPage {
 
 export type TabReadResult =
   { ok: true; page: TabPage } | { ok: false; error: { code: string; message: string } };
-
-export interface TabReadRequest {
-  requestId: string;
-  options: TabReadOptions;
-}
 
 export class TabReadError extends Error {
   readonly code: string;

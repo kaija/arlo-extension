@@ -18,13 +18,13 @@ describe('settings', () => {
   });
 
   it('merges a patch over what is stored', async () => {
-    await saveSettings({ bridgeToken: 'token-abc' });
+    await saveSettings({ theme: 'dark' });
     const profile = { ...createLlmProfile('openai-responses'), model: 'gpt-5.6-terra' };
     await saveSettings({ llmProfiles: [profile], defaultLlmProfileId: profile.id });
     const settings = await loadSettings();
-    expect(settings.bridgeToken).toBe('token-abc');
+    expect(settings.theme).toBe('dark');
     expect(getDefaultLlmProfile(settings)?.model).toBe('gpt-5.6-terra');
-    expect(settings.bridgeUrl).toBe(DEFAULT_SETTINGS.bridgeUrl);
+    expect(settings.onboardingCompleted).toBe(DEFAULT_SETTINGS.onboardingCompleted);
   });
 
   it('keeps session-only API keys out of local settings', async () => {
@@ -58,9 +58,9 @@ describe('settings', () => {
   it('notifies subscribers when settings change', async () => {
     let seen = false;
     const unsubscribe = onSettingsChanged((settings) => {
-      seen = settings.bridgeToken === 'watched';
+      seen = settings.theme === 'light';
     });
-    await saveSettings({ bridgeToken: 'watched' });
+    await saveSettings({ theme: 'light' });
     unsubscribe();
     expect(seen).toBe(true);
   });

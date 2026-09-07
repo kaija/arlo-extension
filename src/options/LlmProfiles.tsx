@@ -237,9 +237,24 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     }
   };
 
-  const ensureEndpointPermission = (profile: LlmProfile): Promise<boolean> => {
+  /**
+   * Chrome rejects rather than returning false when the requested origin is not
+   * declared optional in the manifest, so both outcomes have to reach the
+   * notice. An unhandled rejection here read as a dead Refresh button.
+   * Returns the reason it could not be granted, or null once it is.
+   */
+  const ensureEndpointPermission = async (profile: LlmProfile): Promise<string | null> => {
     const originPattern = `${profileOrigin(profile)}/*`;
-    return chrome.permissions.request({ origins: [originPattern] });
+    let granted: boolean;
+    try {
+      // Called before any await in this click, because Chrome only grants an
+      // optional permission while the user's gesture is still live.
+      granted = await chrome.permissions.request({ origins: [originPattern] });
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      return `Chrome would not request access to ${originPattern}: ${reason}`;
+    }
+    return granted ? null : 'Permission to contact this endpoint was not granted.';
   };
 
   const refreshModels = async () => {
@@ -253,8 +268,9 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     setBusy(true);
     setDiagnostic(null);
     try {
-      if (!(await ensureEndpointPermission(draft))) {
-        setNotice('Permission to contact this endpoint was not granted.');
+      const blocked = await ensureEndpointPermission(draft);
+      if (blocked) {
+        setNotice(blocked);
         return;
       }
       const response = await sendToBackground({ type: 'llm:list-models', profile: draft });
@@ -277,6 +293,8 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       });
       setDiagnostic(result.diagnostic ?? null);
       setNotice(result.message);
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
@@ -496,6 +514,14 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     </select>
                   </SelectWrap>
                 </Field>
+
+                {draft.apiContract === 'anthropic-messages' ? (
+                  <Alert tone="warning" title="Arlo cannot drive this contract yet">
+                    The panel runs its agent on the OpenAI wire formats. An Anthropic profile can
+                    still list its models here, but a chat turn will stop with an error. Use an
+                    OpenAI Responses or Chat Completions endpoint to run Arlo.
+                  </Alert>
+                ) : null}
 
                 <Field id="base-url" label="Base URL">
                   <input

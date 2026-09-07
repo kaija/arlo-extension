@@ -17,9 +17,8 @@ export interface ModelDiscoveryResult {
 }
 
 /**
- * The chat itself runs panel-to-bridge over HTTP, so the service worker is left
- * with one job: reaching a model provider's /models endpoint, which needs a
- * host permission the panel does not hold.
+ * The turn itself runs in the panel, so the service worker is left with one
+ * job: listing a model provider's models for the settings page.
  */
 export type BackgroundRequest = { type: 'llm:list-models'; profile: LlmProfile };
 

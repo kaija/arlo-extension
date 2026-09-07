@@ -1,6 +1,6 @@
 /**
  * The service worker is nearly empty by design: the chat streams straight from
- * the side panel to the local bridge, because an MV3 worker is torn down after
+ * the side panel to the model, because an MV3 worker is torn down after
  * about thirty seconds idle and an agent turn runs for minutes.
  *
  * It opens the panel from a toolbar gesture and reaches a model provider's

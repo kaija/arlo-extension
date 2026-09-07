@@ -1,9 +1,10 @@
 /**
- * The side panel against a stubbed chrome.*, pointed at a real running bridge.
- * Dev-only — not a build input, so it never reaches dist/.
+ * The side panel against a stubbed chrome.*. Dev-only — not a build input, so
+ * it never reaches dist/.
  *
- * Start the bridge so it accepts this page's origin:
- *   ARLO_ALLOWED_ORIGINS=http://localhost:5199 ARLO_BRIDGE_TOKEN=dev npm start
+ * Point it at any OpenAI-compatible endpoint with `base`, `model` and `key`.
+ * Every tab the agent opens is recorded on `globalThis.__openedTabs`, so a
+ * driver can assert on what the run actually did to the browser.
  */
 const params = new URLSearchParams(location.search);
 
@@ -12,20 +13,23 @@ const settings = {
     {
       id: 'profile_dev',
       name: 'Dev gateway',
-      apiContract: 'openai-responses',
-      baseUrl: 'https://api.openai.com/v1',
+      apiContract: params.get('contract') ?? 'openai-responses',
+      baseUrl: params.get('base') ?? 'https://api.openai.com/v1',
       apiKey: params.get('key') ?? 'sk-not-a-real-key',
       rememberApiKey: true,
-      model: 'gpt-5.6-terra',
-      modelIds: ['gpt-5.6-terra'],
+      model: params.get('model') ?? 'gpt-5.6-terra',
+      modelIds: [params.get('model') ?? 'gpt-5.6-terra'],
       discovery: { status: 'available', checkedAt: Date.now(), message: 'Models loaded' },
     },
   ],
   defaultLlmProfileId: 'profile_dev',
-  bridgeUrl: params.get('bridge') ?? 'http://localhost:4319',
-  bridgeToken: params.get('token') ?? 'dev',
   onboardingCompleted: true,
 };
+
+/** What the agent actually did to the browser, for a driver to assert on. */
+const openedTabs: unknown[] = [];
+Object.assign(globalThis, { __openedTabs: openedTabs });
+let nextTabId = 500;
 
 const noop = () => {};
 Object.assign(globalThis, {
@@ -44,18 +48,30 @@ Object.assign(globalThis, {
       openOptionsPage: noop,
       onMessage: { addListener: noop, removeListener: noop },
     },
+    windows: { getCurrent: async () => ({ id: 7 }) },
     tabs: {
       query: async () => [
         {
+          id: 42,
           active: true,
           title: 'Inbox - Gmail',
           url: params.get('page') ?? 'https://mail.google.com/mail/u/0/#inbox',
         },
       ],
+      create: async (info: unknown) => {
+        openedTabs.push(info);
+        return { id: (nextTabId += 1) };
+      },
+      group: async () => 9,
+      remove: async () => undefined,
       onActivated: { addListener: noop, removeListener: noop },
       onUpdated: { addListener: noop, removeListener: noop },
     },
-    // `granted=0` in the query string reproduces the blocked-permission screen.
+    tabGroups: {
+      query: async () => [],
+      update: async (_id: number, props: Record<string, unknown>) => ({ id: 9, ...props }),
+    },
+    // `granted=0` in the query string reproduces the model-access screen.
     permissions: {
       contains: async () => params.get('granted') !== '0',
       request: async () => true,

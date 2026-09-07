@@ -1,4 +1,5 @@
-/** The two states where chat cannot start yet, each naming its own fix. */
+/** The states where chat cannot start yet, each naming its own fix. */
+import type { ChatStatus } from '../useChat';
 
 export function ModelSetupScreen() {
   return (
@@ -6,7 +7,8 @@ export function ModelSetupScreen() {
       <div className="screen__group">
         <h1 className="screen__title">Connect a model to start</h1>
         <p className="screen__lead">
-          Add an OpenAI-compatible profile and paste the token the bridge printed when it started.
+          Arlo needs an OpenAI-compatible endpoint and a key. Add one in settings and it will be
+          ready here.
         </p>
       </div>
       <div className="screen__actions">
@@ -22,56 +24,35 @@ export function ModelSetupScreen() {
   );
 }
 
-interface BridgeScreenProps {
-  status:
-    | 'offline'
-    | 'forbidden'
-    | 'unauthorized'
-    | 'rejected'
-    | 'paired-elsewhere'
-    | 'unconfigured'
-    | 'upgrade-required';
-  url: string;
+interface ModelAccessScreenProps {
+  status: Extract<ChatStatus, 'no-model-access' | 'bad-endpoint'>;
+  endpoint: string;
   onAllow: () => void;
   onRetry: () => void;
 }
 
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 /**
- * A blocked request and a dead server look the same from inside a `catch`, so
- * each reason gets its own screen. Nothing here tells you to start something
- * that is already running.
+ * The panel calls the model itself, so Chrome has to allow the one origin the
+ * profile points at. Asking here rather than at install keeps the grant narrow
+ * and legible: a single named host, revocable.
  */
-export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScreenProps) {
-  if (status === 'upgrade-required') {
+export function ModelAccessScreen({ status, endpoint, onAllow, onRetry }: ModelAccessScreenProps) {
+  if (status === 'bad-endpoint') {
     return (
       <div className="screen">
         <div className="screen__group">
-          <h1 className="screen__title">Restart Arlo’s bridge</h1>
+          <h1 className="screen__title">That endpoint can’t be used</h1>
           <p className="screen__lead">
-            The bridge is running an older version that cannot read your current page. Restart it to
-            load the update. This panel will reconnect automatically.
-          </p>
-        </div>
-        <div className="screen__actions">
-          <button
-            type="button"
-            className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
-            onClick={onRetry}
-          >
-            Check again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'unconfigured') {
-    return (
-      <div className="screen">
-        <div className="screen__group">
-          <h1 className="screen__title">No bridge address</h1>
-          <p className="screen__lead">
-            Arlo needs the address of the local process that runs the agent.
+            Arlo can only talk to an <code>http://</code> or <code>https://</code> address. This
+            profile’s Base URL is {endpoint || 'empty'}.
           </p>
         </div>
         <div className="screen__actions">
@@ -81,68 +62,6 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
             onClick={() => chrome.runtime.openOptionsPage()}
           >
             Open settings
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'unauthorized' || status === 'rejected' || status === 'paired-elsewhere') {
-    const title =
-      status === 'unauthorized'
-        ? 'The bridge rejected the token'
-        : status === 'paired-elsewhere'
-          ? 'The bridge is paired elsewhere'
-          : 'The bridge refused this panel';
-    const lead =
-      status === 'unauthorized'
-        ? 'It is running and reachable, but the token in settings does not match the one it was started with.'
-        : status === 'paired-elsewhere'
-          ? 'It is running, but it is already paired with a different extension. Delete .arlo-client in the workspace folder to pair it again.'
-          : 'It is running, but it could not tell that this request came from the extension. Restarting the bridge and reopening the panel usually settles it.';
-    return (
-      <div className="screen">
-        <div className="screen__group">
-          <h1 className="screen__title">{title}</h1>
-          <p className="screen__lead">{lead}</p>
-        </div>
-        <div className="screen__actions">
-          <button
-            type="button"
-            className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
-            onClick={() => chrome.runtime.openOptionsPage()}
-          >
-            Open settings
-          </button>
-          <button
-            type="button"
-            className="panel-btn panel-btn--sm panel-btn--ghost panel-btn--block"
-            onClick={onRetry}
-          >
-            Try again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'forbidden') {
-    return (
-      <div className="screen">
-        <div className="screen__group">
-          <h1 className="screen__title">Chrome is blocking the bridge</h1>
-          <p className="screen__lead">
-            The bridge may well be running — Chrome needs your permission before the panel can reach
-            a local address. This is the only site access Arlo asks for.
-          </p>
-        </div>
-        <div className="screen__actions">
-          <button
-            type="button"
-            className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
-            onClick={onAllow}
-          >
-            Allow access to {hostOf(url)}
           </button>
         </div>
       </div>
@@ -152,43 +71,28 @@ export function BridgeOfflineScreen({ status, url, onAllow, onRetry }: BridgeScr
   return (
     <div className="screen">
       <div className="screen__group">
-        <h1 className="screen__title">The bridge isn’t running</h1>
+        <h1 className="screen__title">Allow Arlo to reach your model</h1>
         <p className="screen__lead">
-          The agent runs in a local process, not in the browser. Start it and this will connect on
-          its own.
+          Chrome asks before an extension may contact a site. Arlo needs this for the endpoint your
+          profile points at, and nothing else.
         </p>
-      </div>
-      <div className="screen__group">
-        <div className="eyebrow">In the project</div>
-        <ul className="examples">
-          <li>cd bridge &amp;&amp; npm start</li>
-        </ul>
-        <p className="idle__footnote">Looking for it at {url}, retrying every few seconds.</p>
       </div>
       <div className="screen__actions">
         <button
           type="button"
-          className="panel-btn panel-btn--sm panel-btn--secondary panel-btn--block"
-          onClick={onRetry}
+          className="panel-btn panel-btn--md panel-btn--primary panel-btn--block"
+          onClick={onAllow}
         >
-          Try now
+          Allow access to {hostOf(endpoint)}
         </button>
         <button
           type="button"
           className="panel-btn panel-btn--sm panel-btn--ghost panel-btn--block"
-          onClick={() => chrome.runtime.openOptionsPage()}
+          onClick={onRetry}
         >
-          Change the bridge address
+          Check again
         </button>
       </div>
     </div>
   );
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return 'the bridge';
-  }
 }

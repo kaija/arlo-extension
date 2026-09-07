@@ -51,16 +51,6 @@ export function SlidersIcon({ size = 17 }: IconProps) {
   );
 }
 
-export function GlobeIcon({ size = 13, className }: IconProps) {
-  return (
-    <svg {...svgProps(size)} className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    </svg>
-  );
-}
-
 export function WarningIcon({ size = 13 }: IconProps) {
   return (
     <svg {...svgProps(size, 2.4)}>
@@ -98,38 +88,11 @@ export function ChevronIcon({ size = 15, className }: IconProps) {
   );
 }
 
-export function StopIcon({ size = 15 }: IconProps) {
-  return (
-    <svg {...svgProps(size)}>
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    </svg>
-  );
-}
-
-export function CheckIcon({ size = 14, className, strokeWidth = 2 }: IconProps) {
-  return (
-    <svg {...svgProps(size, strokeWidth)} className={className} strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
 export function CloseIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-export function HandIcon({ size = 15 }: IconProps) {
-  return (
-    <svg {...svgProps(size)} strokeLinejoin="round">
-      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
-      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
-      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
-      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
     </svg>
   );
 }
@@ -169,16 +132,6 @@ export function AlertCircleIcon({ size = 18 }: IconProps) {
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-
-export function ExternalIcon({ size = 14 }: IconProps) {
-  return (
-    <svg {...svgProps(size)} strokeLinejoin="round">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
   );
 }

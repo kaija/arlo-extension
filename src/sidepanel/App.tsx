@@ -6,7 +6,7 @@ import { Dock } from './components/Dock';
 import { IdleScreen } from './components/IdleScreen';
 import { MessageList } from './components/MessageList';
 import { PanelHeader } from './components/PanelHeader';
-import { BridgeOfflineScreen, ModelSetupScreen } from './components/Screens';
+import { ModelAccessScreen, ModelSetupScreen } from './components/Screens';
 import { useActivePage } from './useActivePage';
 import { useChat } from './useChat';
 
@@ -24,17 +24,18 @@ export function App() {
   }, [count, latestText]);
 
   const body = () => {
-    if (chat.status !== 'ok' && chat.status !== 'checking') {
+    if (chat.status === 'unconfigured') return <ModelSetupScreen />;
+    if (chat.status === 'no-model-access' || chat.status === 'bad-endpoint') {
       return (
-        <BridgeOfflineScreen
+        <ModelAccessScreen
           status={chat.status}
-          url={chat.bridgeUrl}
+          endpoint={chat.endpoint}
           onAllow={() => void chat.allowAccess()}
           onRetry={chat.recheck}
         />
       );
     }
-    if (!chat.configured) return <ModelSetupScreen />;
+    if (chat.status === 'checking') return null;
     if (count === 0)
       return <IdleScreen busy={chat.session.running} page={page} onSubmit={chat.send} />;
     return (
@@ -44,7 +45,7 @@ export function App() {
     );
   };
 
-  const ready = chat.status === 'ok' && chat.configured;
+  const ready = chat.status === 'ready';
 
   return (
     <div className="panel">

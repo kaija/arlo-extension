@@ -13,17 +13,17 @@ The interaction design lives in [`design/arlo-sidepanel-design-prompt.md`](desig
 
 ## Status
 
-This repository is the working extension: the state machine and gate policy are implemented and
-tested, the side panel drives a real run, the content script performs page actions, and the planner
-can use Anthropic Messages, OpenAI Responses, or OpenAI-compatible Chat Completions.
+This repository is the working extension. The agent runs inside the side panel on the OpenAI
+Agents SDK, with two browser tools — a three-level current-tab reader and a tab opener that keeps
+every tab it creates in an Arlo tab group. There is no local process to start: an OpenAI-compatible
+endpoint and a key are the whole setup.
+
+[`docs/architecture.md`](docs/architecture.md) has the current picture: both agent paths, the two
+browser tools, and where everything lives.
 
 ## Requirements
 
-The Arlo Codex agent also has a three-level current-tab reader. See
-[the tool contract](docs/current-tab-tool.md) for `compact`, `detailed`, and live `html` reads,
-automatic registration, browser permissions and setup.
-
-- Node.js 24 (`.nvmrc` pins it; `nvm use` or `fnm use` picks it up)
+- Node.js 24 for the build only (`.nvmrc` pins it; `nvm use` or `fnm use` picks it up)
 - Chrome 124+
 - `zip` on PATH for packaging (`make package`)
 
@@ -177,7 +177,8 @@ granted, and unregistered if it is revoked
 
 `chrome.storage.local` holds settings and API keys the user chooses to remember; it is never synced
 across Chrome profiles. A profile can instead keep its key in `chrome.storage.session`, which clears
-when Chrome closes. Model requests go directly from the background worker to the profile's Base URL.
+when Chrome closes. Model requests go directly from the background worker to the profile's Base URL,
+so refreshing a profile's model list asks for that one provider origin at the moment it is needed.
 
 ## AI connections
 

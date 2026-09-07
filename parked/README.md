@@ -23,6 +23,13 @@ Two files were split rather than moved whole, and say so in their own headers:
 `background/llm-planning.ts` came out of `src/background/llm-client.ts`, and
 `tests/llm-client-planning.test.ts` out of its test. Both need helpers that stayed behind.
 
+## Drift since parking
+
+`src/design-system/icons.tsx` no longer carries the icons only these components used, because
+nothing shipping imported them: `StopIcon` (`sidepanel/components/Outcomes.tsx`), `HandIcon`
+(`NeedsHelpCard.tsx`) and `CheckIcon` (`Onboarding.tsx`). Restore them from history alongside the
+components, or point those imports at icons that are still there.
+
 ## Restoring
 
 `git mv` the files back, undo the tooling exclusions above, and re-add the removed permissions in

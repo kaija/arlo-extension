@@ -2,16 +2,14 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLlmProfile, saveSettings } from '../src/shared/settings';
-import { createSession, streamTurn } from '../src/sidepanel/bridge-client';
-import type * as BridgeClientModule from '../src/sidepanel/bridge-client';
-import type { TurnHandlers } from '../src/sidepanel/bridge-client';
+import { runLocalTurn } from '../src/sidepanel/local-agent';
+import type * as LocalAgentModule from '../src/sidepanel/local-agent';
+import type { LocalTurnHandlers } from '../src/sidepanel/local-agent';
 import { useChat } from '../src/sidepanel/useChat';
 
-vi.mock('../src/sidepanel/bridge-client', async (importOriginal) => ({
-  ...(await importOriginal<typeof BridgeClientModule>()),
-  probeBridge: vi.fn().mockResolvedValue('ok'),
-  createSession: vi.fn().mockResolvedValue('chat-session'),
-  streamTurn: vi.fn(),
+vi.mock('../src/sidepanel/local-agent', async (importOriginal) => ({
+  ...(await importOriginal<typeof LocalAgentModule>()),
+  runLocalTurn: vi.fn(),
 }));
 
 beforeEach(async () => {
@@ -24,181 +22,114 @@ beforeEach(async () => {
   vi.stubGlobal('chrome', {
     ...chrome,
     windows: { getCurrent: vi.fn().mockResolvedValue({ id: 7 }) },
+    permissions: { contains: vi.fn().mockResolvedValue(true), request: vi.fn() },
   });
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
-describe('useChat streaming', () => {
-  it('renders each completed line while the stream remains open and replaces prior snapshots', async () => {
-    let handlers: TurnHandlers | undefined;
-    let finishStream: (() => void) | undefined;
-    vi.mocked(streamTurn).mockImplementation(
-      async (_config, _sessionId, _prompt, _profile, nextHandlers) => {
-        handlers = nextHandlers;
+/** The panel is usable only once Chrome has granted the profile's origin. */
+async function readyChat() {
+  const { result } = renderHook(() => useChat());
+  await waitFor(() => expect(result.current.status).toBe('ready'));
+  return result;
+}
+
+const lastReply = (result: { current: ReturnType<typeof useChat> }) =>
+  result.current.session.messages.at(-1);
+
+describe('a streamed turn in the panel', () => {
+  it('replaces the reply with each snapshot and settles when the turn ends', async () => {
+    let handlers: LocalTurnHandlers | undefined;
+    let finish: (() => void) | undefined;
+    vi.mocked(runLocalTurn).mockImplementation(
+      async (_profile, _windowId, _prompt, _history, next) => {
+        handlers = next;
         await new Promise<void>((resolve) => {
-          finishStream = resolve;
+          finish = resolve;
         });
+        return { history: [] };
       },
     );
 
-    const { result } = renderHook(useChat);
-    await waitFor(() => expect(result.current.status).toBe('ok'));
-
-    let turn!: Promise<void>;
-    act(() => {
-      turn = result.current.send('Write two lines');
-    });
+    const result = await readyChat();
+    void act(() => void result.current.send('open gmail'));
     await waitFor(() => expect(handlers).toBeDefined());
-    const currentHandlers = handlers;
-    if (!currentHandlers) throw new Error('Expected stream handlers.');
 
-    act(() => {
-      currentHandlers.onText({
-        id: 'agent-message-1',
-        text: 'First line\nunfinished tail',
-        completed: false,
-      });
-    });
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      role: 'assistant',
-      text: 'First line\n',
-      streaming: true,
-    });
-    expect(result.current.session.running).toBe(true);
+    // Snapshots are cumulative, not deltas — each one replaces the last.
+    act(() => handlers!.onText({ id: 'm1', text: 'Open', completed: false }));
+    expect(lastReply(result)?.text).toBe('Open');
+    act(() => handlers!.onText({ id: 'm1', text: 'Opening Gmail', completed: false }));
+    expect(lastReply(result)?.text).toBe('Opening Gmail');
+    expect(lastReply(result)?.streaming).toBe(true);
 
-    act(() => {
-      currentHandlers.onText({
-        id: 'agent-message-1',
-        text: 'First line\nSecond line\nunfinished tail',
-        completed: false,
-      });
-    });
-    expect(result.current.session.messages.at(-1)?.text).toBe('First line\nSecond line\n');
-
-    act(() => {
-      currentHandlers.onText({
-        id: 'agent-message-1',
-        text: 'First line\nSecond line\nfinal tail',
-        completed: true,
-      });
-    });
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      text: 'First line\nSecond line\nfinal tail',
-      streaming: true,
-    });
-
-    const finish = finishStream;
-    if (!finish) throw new Error('Expected the stream to be pending.');
-    act(finish);
+    act(() => handlers!.onText({ id: 'm1', text: 'Opening Gmail.', completed: true }));
     await act(async () => {
-      await turn;
+      finish!();
     });
-
-    expect(createSession).toHaveBeenCalledWith(expect.anything());
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      text: 'First line\nSecond line\nfinal tail',
-      streaming: false,
-    });
-    expect(result.current.session.running).toBe(false);
+    await waitFor(() => expect(lastReply(result)?.streaming).toBe(false));
+    expect(lastReply(result)?.text).toBe('Opening Gmail.');
+    expect(lastReply(result)?.failed).toBeFalsy();
   });
 
-  it('flushes a final partial line when a compatible bridge ends without item.completed', async () => {
-    let handlers: TurnHandlers | undefined;
-    let finishStream: (() => void) | undefined;
-    vi.mocked(streamTurn).mockImplementation(
-      async (_config, _sessionId, _prompt, _profile, nextHandlers) => {
-        handlers = nextHandlers;
-        await new Promise<void>((resolve) => {
-          finishStream = resolve;
-        });
+  it('keeps an error reported after a partial reply, and marks it failed', async () => {
+    vi.mocked(runLocalTurn).mockImplementation(
+      async (_profile, _windowId, _prompt, _history, next) => {
+        next.onText({ id: 'm1', text: 'Looking at the page', completed: false });
+        next.onError('The model endpoint returned HTTP 429.');
+        return { history: [] };
       },
     );
 
-    const { result } = renderHook(useChat);
-    await waitFor(() => expect(result.current.status).toBe('ok'));
+    const result = await readyChat();
+    await act(() => result.current.send('summarise this'));
 
-    let turn!: Promise<void>;
-    act(() => {
-      turn = result.current.send('Write one line');
-    });
-    await waitFor(() => expect(handlers).toBeDefined());
-    const currentHandlers = handlers;
-    if (!currentHandlers) throw new Error('Expected stream handlers.');
-
-    act(() => {
-      currentHandlers.onText({
-        id: 'agent-message-1',
-        text: 'Visible line\nfinal tail',
-        completed: false,
-      });
-    });
-    expect(result.current.session.messages.at(-1)?.text).toBe('Visible line\n');
-
-    const finish = finishStream;
-    if (!finish) throw new Error('Expected the stream to be pending.');
-    act(finish);
-    await act(async () => {
-      await turn;
-    });
-
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      text: 'Visible line\nfinal tail',
-      streaming: false,
-    });
+    await waitFor(() => expect(lastReply(result)?.streaming).toBe(false));
+    // The partial answer survives; the reason is appended rather than replacing it.
+    expect(lastReply(result)?.text).toBe(
+      'Looking at the page\n\nThe model endpoint returned HTTP 429.',
+    );
+    expect(lastReply(result)?.failed).toBe(true);
   });
 
-  it('keeps an error reported after a streamed partial line', async () => {
-    let handlers: TurnHandlers | undefined;
-    let finishStream: (() => void) | undefined;
-    vi.mocked(streamTurn).mockImplementation(
-      async (_config, _sessionId, _prompt, _profile, nextHandlers) => {
-        handlers = nextHandlers;
-        await new Promise<void>((resolve) => {
-          finishStream = resolve;
-        });
-      },
+  it('surfaces a thrown turn as the reply, and carries the thread into the next one', async () => {
+    vi.mocked(runLocalTurn).mockRejectedValueOnce(
+      new Error('Arlo speaks the OpenAI wire formats.'),
     );
+    const result = await readyChat();
+    await act(() => result.current.send('hi'));
+    await waitFor(() => expect(lastReply(result)?.failed).toBe(true));
+    expect(lastReply(result)?.text).toBe('Arlo speaks the OpenAI wire formats.');
 
-    const { result } = renderHook(useChat);
-    await waitFor(() => expect(result.current.status).toBe('ok'));
+    vi.mocked(runLocalTurn).mockResolvedValueOnce({ history: [{ role: 'user', content: 'hi' }] });
+    await act(() => result.current.send('again'));
+    vi.mocked(runLocalTurn).mockResolvedValueOnce({ history: [] });
+    await act(() => result.current.send('third'));
 
-    let turn!: Promise<void>;
-    act(() => {
-      turn = result.current.send('Write one line');
-    });
-    await waitFor(() => expect(handlers).toBeDefined());
-    const currentHandlers = handlers;
-    if (!currentHandlers) throw new Error('Expected stream handlers.');
+    // The thread the previous turn returned is what the next one continues from.
+    expect(vi.mocked(runLocalTurn).mock.calls.at(-1)?.[3]).toEqual([
+      { role: 'user', content: 'hi' },
+    ]);
+  });
+});
 
-    act(() => {
-      currentHandlers.onText({
-        id: 'agent-message-1',
-        text: 'Visible line\nfinal tail',
-        completed: false,
-      });
-      currentHandlers.onError('The bridge stopped.');
-    });
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      text: 'Visible line\nfinal tail\n\nThe bridge stopped.',
-      failed: true,
-      streaming: true,
-    });
-
-    const finish = finishStream;
-    if (!finish) throw new Error('Expected the stream to be pending.');
-    act(finish);
-    await act(async () => {
-      await turn;
+describe('what stops a turn starting', () => {
+  it('asks for the model origin before anything can be sent', async () => {
+    vi.stubGlobal('chrome', {
+      ...chrome,
+      windows: { getCurrent: vi.fn().mockResolvedValue({ id: 7 }) },
+      permissions: { contains: vi.fn().mockResolvedValue(false), request: vi.fn() },
     });
 
-    expect(result.current.session.messages.at(-1)).toMatchObject({
-      text: 'Visible line\nfinal tail\n\nThe bridge stopped.',
-      failed: true,
-      streaming: false,
-    });
+    const { result } = renderHook(() => useChat());
+    await waitFor(() => expect(result.current.status).toBe('no-model-access'));
+
+    await act(() => result.current.send('open gmail'));
+    expect(runLocalTurn).not.toHaveBeenCalled();
+    expect(result.current.session.messages).toHaveLength(0);
   });
 });
