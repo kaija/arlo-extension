@@ -3,8 +3,8 @@
  * One Vite pass makes the extension: the pages and the module service worker.
  *
  * A second pass used to build the content script as a single IIFE. The agent
- * now runs in the side panel, not in the page, so there is no content script;
- * parked/vite.content.config.ts has that pass if it returns.
+ * now runs in the side panel, not in the page, so there is no content script
+ * and no second pass.
  */
 import { build } from 'vite';
 

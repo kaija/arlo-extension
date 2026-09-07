@@ -5,9 +5,6 @@ node_modules/
 public/icons/
 design/
 
-# Kept verbatim so a parked feature can be restored exactly as it was.
-parked/
-
 # Vendored verbatim from the Arlo design system (see src/design-system/index.css).
 # Formatting these would put them out of sync with the source project.
 src/design-system/tokens/colors.css

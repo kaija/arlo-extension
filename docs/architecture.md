@@ -107,13 +107,10 @@ src/
 ├── options/               settings UI
 ├── design-system/         tokens, icons, shared CSS
 └── preview/               dev-only harness: both pages against a stubbed chrome.*
-
-parked/                    deliberate archive — excluded from build, lint, types and tests
 ```
 
-`parked/` is not dead code. It holds the run machine, gate policy, content script and plan/run/gate
-cards from an earlier design, kept whole so a feature can be restored with its design intact. See
-`parked/README.md`, including the drift noted there.
+An earlier design — a run machine, a gate policy, a content script and the plan/run/gate cards —
+lives in the project's git history rather than the tree.
 
 ## Known gaps
 

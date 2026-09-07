@@ -10,8 +10,8 @@ promise:
 > You always know what it is about to do, what it has already done, and you can stop it before it
 > does anything it cannot take back.
 
-That design is built and kept whole in [`parked/`](parked/README.md); what ships today is the
-side-panel agent with two browser tools. The interaction design lives in
+An earlier build implemented that design in full; it lives in the project's git history. What ships
+today is the side-panel agent with two browser tools. The interaction design lives in
 [`design/arlo-sidepanel-design-prompt.md`](design/arlo-sidepanel-design-prompt.md).
 
 ## Status
@@ -96,18 +96,15 @@ src/
 ├── options/                # settings: AI profiles, model discovery, theme
 ├── design-system/          # the Arlo design system, vendored from Claude Design
 └── preview/                # dev-only harness; not a build input, never in dist/
-
-parked/                     # deliberate archive — excluded from build, lint, types and tests
 ```
 
 The rule that keeps this navigable: **`core/` never imports `chrome`**. Anything that touches a
 browser API lives in `background/`, `sidepanel/` or `options/`, which is also why `core/` (with
 `shared/`) is the part under a coverage threshold.
 
-`parked/` holds an earlier design — a plan/gate/run state machine, a content script and the cards
-that drove them — kept whole so a feature can be restored with its design intact. See
-[`parked/README.md`](parked/README.md); [`docs/architecture.md`](docs/architecture.md) has the
-current picture.
+[`docs/architecture.md`](docs/architecture.md) has the current picture. An earlier plan/gate/run
+state machine — with a content script and the cards that drove it — lives in the project's git
+history.
 
 ## Design system
 
@@ -168,9 +165,9 @@ window the user is not looking at. Closing the panel ends the turn — the servi
 it, because MV3 tears the worker down after about thirty seconds idle.
 
 The full safety model — a plan approved before anything happens, a gate before every irreversible
-action, explicit hand-off for CAPTCHAs and credentials — is parked, not shipped. See
-[`docs/architecture.md`](docs/architecture.md) for what runs today and
-[`parked/README.md`](parked/README.md) for what is waiting to come back.
+action, explicit hand-off for CAPTCHAs and credentials — is not shipped; it exists in an earlier
+build in the project's git history. See [`docs/architecture.md`](docs/architecture.md) for what
+runs today.
 
 ## Permissions
 
