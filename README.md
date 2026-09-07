@@ -1,15 +1,18 @@
 # Arlo — Chrome side panel extension
 
-Arlo is an agentic browser operator that lives in the Chrome side panel. You give it a task in
-plain language and it works **the tab you are looking at** — clicking, typing, scrolling, changing
-pages — until the task is done.
+Arlo is an AI assistant that lives in the Chrome side panel. You give it a task in plain language;
+it can **read the tab you are looking at** and **open tabs** for you, and it streams its answer
+back as it works.
 
-It is not a chat assistant, so the whole product rests on one promise:
+The larger goal is an agentic browser operator that clicks, types and navigates the page under one
+promise:
 
 > You always know what it is about to do, what it has already done, and you can stop it before it
 > does anything it cannot take back.
 
-The interaction design lives in [`design/arlo-sidepanel-design-prompt.md`](design/arlo-sidepanel-design-prompt.md).
+That design is built and kept whole in [`parked/`](parked/README.md); what ships today is the
+side-panel agent with two browser tools. The interaction design lives in
+[`design/arlo-sidepanel-design-prompt.md`](design/arlo-sidepanel-design-prompt.md).
 
 ## Status
 
@@ -45,7 +48,7 @@ Then load it into Chrome:
 4. Grant site access from the onboarding screen
 
 `make dev` rebuilds on change. Chrome picks up page changes on reload; changes to the service
-worker or content script need the **Reload** button on `chrome://extensions`.
+worker need the **Reload** button on `chrome://extensions`.
 
 ## Make targets
 
@@ -83,24 +86,28 @@ The Makefile calls these, and they work directly too.
 
 ```
 src/
-├── manifest.config.ts     # the manifest, generated into dist at build time
-├── core/                  # pure domain logic — no chrome APIs, fully unit tested
-│   ├── types.ts           #   Task, Plan, Step, RunState vocabulary
-│   ├── run-machine.ts     #   the state machine as a pure reducer
-│   ├── gate-policy.ts     #   which actions are irreversible
-│   └── suggestions.ts     #   site-aware example tasks
-├── background/            # service worker: routing, run execution, planning and model APIs
-├── content/               # page actions and the on-page highlight
-├── design-system/         # the Arlo design system, vendored from Claude Design
-├── sidepanel/             # React UI for the whole run lifecycle
-├── options/               # settings: the user's brakes
-├── preview/               # dev-only fidelity board; not a build input, never in dist/
-└── shared/                # typed messaging and settings storage
+├── manifest.config.ts      # the manifest, generated into dist/ at build time
+├── core/                   # pure domain logic — no chrome APIs, covered by a threshold
+│   ├── chat.ts             #   the message / session vocabulary
+│   └── page-suggestions.ts #   site-aware example prompts for the idle screen
+├── background/             # service worker: opens the panel, lists models for Settings
+├── shared/                 # typed messaging, settings storage, the two tool contracts, theme
+├── sidepanel/              # React UI, the agent loop (local-agent.ts) and the two browser tools
+├── options/                # settings: AI profiles, model discovery, theme
+├── design-system/          # the Arlo design system, vendored from Claude Design
+└── preview/                # dev-only harness; not a build input, never in dist/
+
+parked/                     # deliberate archive — excluded from build, lint, types and tests
 ```
 
 The rule that keeps this navigable: **`core/` never imports `chrome`**. Anything that touches a
-browser API lives in `background/`, `content/` or a UI folder, which is also why `core/` is the part
-under a coverage threshold.
+browser API lives in `background/`, `sidepanel/` or `options/`, which is also why `core/` (with
+`shared/`) is the part under a coverage threshold.
+
+`parked/` holds an earlier design — a plan/gate/run state machine, a content script and the cards
+that drove them — kept whole so a feature can be restored with its design intact. See
+[`parked/README.md`](parked/README.md); [`docs/architecture.md`](docs/architecture.md) has the
+current picture.
 
 ## Design system
 
@@ -143,37 +150,40 @@ To check either surface, run the dev server:
 npx vite --port 5199
 ```
 
-- <http://localhost:5199/preview/index.html> — every side-panel state at the real 400 x 760, in the
-  same order as the design's own boards.
+- <http://localhost:5199/preview/panel.html> — the side panel at the real 400 × 760 against a
+  stubbed `chrome.*`. `?base=…&model=…&key=…` points it at any OpenAI-compatible endpoint;
+  `?granted=0` reproduces the model-access screen.
 - <http://localhost:5199/preview/options.html> — the options page against a stubbed `chrome.*`.
 
 Both are dev-only: `vite.config.ts` lists the build inputs explicitly, so nothing under
 `src/preview/` reaches `dist/`.
 
-## How a run works
+## How a turn works
 
-```
-idle → planning → awaiting_approval → running ⇄ gated
-                                         ├→ needs_help → running
-                                         ├→ paused → running
-                                         ├→ stopped
-                                         └→ done
-```
+The panel owns the turn. `useChat.send()` calls `runLocalTurn()` in
+[`src/sidepanel/local-agent.ts`](src/sidepanel/local-agent.ts), which runs the OpenAI Agents SDK
+loop with two browser tools and streams the reply back as growing snapshots. `windowId` is closed
+over from the panel, never taken from a tool argument, so a read or an open cannot be aimed at a
+window the user is not looking at. Closing the panel ends the turn — the service worker cannot own
+it, because MV3 tears the worker down after about thirty seconds idle.
 
-- **Plan** — every task is a numbered plan, approved once before anything happens. Steps that need
-  confirmation are flagged _in the plan_, not sprung on the user mid-run.
-- **Gate** — before an irreversible action (submit, order, send, delete, sign in, change settings)
-  the run stops and waits. It never continues on its own. Defaults live in
-  [`src/core/gate-policy.ts`](src/core/gate-policy.ts) and the user can widen them in Settings.
-- **Handing back** — Arlo does not solve CAPTCHAs and never types credentials. Both hand control to
-  the user, who returns it explicitly.
+The full safety model — a plan approved before anything happens, a gate before every irreversible
+action, explicit hand-off for CAPTCHAs and credentials — is parked, not shipped. See
+[`docs/architecture.md`](docs/architecture.md) for what runs today and
+[`parked/README.md`](parked/README.md) for what is waiting to come back.
 
 ## Permissions
 
-Site access is `optional_host_permissions`, requested from the onboarding screen during a user
-gesture rather than at install time. The content script is registered at runtime once access is
-granted, and unregistered if it is revoked
-([`src/background/content-registration.ts`](src/background/content-registration.ts)).
+```
+permissions               activeTab, scripting, sidePanel, storage, tabGroups
+optional_host_permissions http://*/*, https://*/*
+```
+
+Nothing in the optional list is granted at install, and Arlo never asks for the wildcard: it is
+declared only so a single concrete origin — the endpoint the current profile points at — can be
+requested, from the model-access screen during a user gesture. A page read is a one-shot
+`chrome.scripting` injection under `activeTab`, so it lapses when the tab navigates to another
+origin; there is no content script. Either grant is revocable from `chrome://extensions`.
 
 `chrome.storage.local` holds settings and API keys the user chooses to remember; it is never synced
 across Chrome profiles. A profile can instead keep its key in `chrome.storage.session`, which clears
@@ -187,10 +197,12 @@ wire contract, API root, model and optional API key. Model discovery is manual a
 generation. Custom HTTP endpoints are allowed with a warning; changing origins clears the key and
 requires the user to confirm the new data destination.
 
-[`src/background/planner.ts`](src/background/planner.ts) validates model-produced steps and applies
-the local gate policy itself. The model cannot remove confirmation from purchases, messages,
-deletions or other gated actions. [`src/background/llm-client.ts`](src/background/llm-client.ts)
-contains the three request/response adapters and keeps provider details out of the run controller.
+The turn runs on the OpenAI Agents SDK inside the panel
+([`src/sidepanel/local-agent.ts`](src/sidepanel/local-agent.ts)); the model is reached directly
+through an `OpenAI` client with tracing disabled. Anthropic profiles are still offered for model
+discovery but cannot run a turn — the SDK speaks only the OpenAI wire formats. The service
+worker's own call, `GET <endpoint>/models` for Settings, lives in
+[`src/background/llm-client.ts`](src/background/llm-client.ts).
 
 ## CI
 
