@@ -1,6 +1,7 @@
 import { webcrypto } from 'node:crypto';
 import { afterEach, expect, it, vi } from 'vitest';
 
+import { createManifest } from '../src/manifest.config';
 import { readCurrentTab } from '../src/sidepanel/page-reader';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -71,4 +72,20 @@ it('upgrades auto-open behavior so a toolbar click grants access before opening 
   expect(result).toMatchObject({ ok: true, page: { content: '# News today\n\nThe lead story.' } });
   expect(open).toHaveBeenCalledWith({ windowId: tab.windowId });
   expect(executeScript).toHaveBeenCalledTimes(1);
+});
+
+it('offers the standing grant as exactly the origins the manifest declares', async () => {
+  vi.resetModules();
+  const contains = vi.fn(async (_ask: chrome.permissions.Permissions) => false);
+  const request = vi.fn(async (_ask: chrome.permissions.Permissions) => true);
+  vi.stubGlobal('chrome', { permissions: { contains, request } });
+
+  const { hasPageAccess, requestPageAccess } = await import('../src/shared/page-access');
+  expect(await hasPageAccess()).toBe(false);
+  expect(await requestPageAccess()).toBe(true);
+
+  // Chrome rejects a request for anything optional_host_permissions omits.
+  const declared = createManifest('0.0.0').optional_host_permissions;
+  expect(contains.mock.calls[0]?.[0].origins).toEqual(declared);
+  expect(request.mock.calls[0]?.[0].origins).toEqual(declared);
 });

@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { CloseIcon, WarningIcon } from '../design-system/icons';
+import { hasPageAccess, requestPageAccess } from '../shared/page-access';
 import { Composer } from './components/Composer';
 import { Dock } from './components/Dock';
 import { IdleScreen } from './components/IdleScreen';
@@ -14,8 +15,14 @@ export function App() {
   const chat = useChat();
   const page = useActivePage();
   const thread = useRef<HTMLDivElement>(null);
+  // Assume granted until Chrome says otherwise, so the offer never flashes.
+  const [pageAccess, setPageAccess] = useState(true);
   const count = chat.session.messages.length;
   const latestText = chat.session.messages.at(-1)?.text;
+
+  useEffect(() => {
+    void hasPageAccess().then(setPageAccess);
+  }, []);
 
   // Follow the transcript down as it grows.
   useEffect(() => {
@@ -73,6 +80,16 @@ export function App() {
 
       {ready ? (
         <Dock profile={chat.profile}>
+          {pageAccess ? null : (
+            <button
+              type="button"
+              className="panel-btn panel-btn--sm panel-btn--secondary panel-btn--block"
+              title="Otherwise Chrome only lets Arlo read the page for one toolbar click, until you navigate"
+              onClick={() => void requestPageAccess().then(setPageAccess)}
+            >
+              Let Arlo read pages without a toolbar click
+            </button>
+          )}
           <Composer
             placeholder={chat.session.running ? 'Arlo is working…' : 'Ask Arlo to build something…'}
             disabled={chat.session.running}

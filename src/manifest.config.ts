@@ -2,14 +2,14 @@
 
 /** activeTab only exposes the page the user opened Arlo from. */
 /**
- * Declared so Arlo can ask for one provider origin at a time.
+ * Declared so Arlo can ask for a provider origin, or for every page at once.
  * Chrome only grants an optional host permission that the manifest already
  * lists, and it rejects `permissions.request()` outright for anything else — so
  * a profile pointed at a remote provider could never reach its /models endpoint.
- * Nothing here is granted at install: each request names a single concrete
- * origin the reader chose, and the user can revoke it.
+ * Nothing here is granted at install: a request names either the one origin a
+ * profile points at, or every page, and the user can revoke it.
  */
-export const MODEL_HOST_PERMISSIONS = ['http://*/*', 'https://*/*'];
+export const OPTIONAL_HOST_PERMISSIONS = ['http://*/*', 'https://*/*'];
 
 export function createManifest(version: string): chrome.runtime.ManifestV3 {
   return {
@@ -36,8 +36,9 @@ export function createManifest(version: string): chrome.runtime.ManifestV3 {
     },
     options_page: 'options/index.html',
     permissions: ['activeTab', 'scripting', 'sidePanel', 'storage', 'tabGroups'],
-    // Granted in context, as one concrete origin: the endpoint a profile points
-    // at, asked for when the panel or the model list first needs to reach it.
-    optional_host_permissions: MODEL_HOST_PERMISSIONS,
+    // Granted in context: the endpoint a profile points at, asked for when the
+    // panel or the model list first needs it, or every page, asked for once
+    // from the panel instead of a toolbar click per navigation.
+    optional_host_permissions: OPTIONAL_HOST_PERMISSIONS,
   };
 }

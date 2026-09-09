@@ -234,7 +234,7 @@ export async function readCurrentTab(windowId: number, input: unknown): Promise<
       ) {
         throw new TabReadError(
           'PAGE_ACCESS_REQUIRED',
-          `${context} Click the Arlo toolbar icon on the active webpage to grant page access, then retry. If you already did, report this Chrome error instead of repeating the same instruction.`,
+          `${context} Click the Arlo toolbar icon on the active webpage to grant access for this one navigation, or press "Let Arlo read pages without a toolbar click" under the composer to grant it once for every page. Then retry. If you already did, report this Chrome error instead of repeating the same instruction.`,
         );
       }
       throw new TabReadError('READ_FAILED', context);
