@@ -11,7 +11,8 @@ interface ComposerProps {
 }
 
 /**
- * Enter sends, Shift+Enter makes a new line. The field grows with its content
+ * Enter sends, Shift+Enter makes a new line, and Enter while composing with an
+ * IME only confirms the candidate. The field grows with its content
  * (`field-sizing`), which is why the send button aligns to the bottom.
  */
 export function Composer({ placeholder, disabled = false, onStop, onSubmit }: ComposerProps) {
@@ -35,6 +36,8 @@ export function Composer({ placeholder, disabled = false, onStop, onSubmit }: Co
         disabled={disabled}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
+          // Enter also confirms an IME candidate (e.g. Zhuyin); that must not send.
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             submit();
