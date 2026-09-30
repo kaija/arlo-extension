@@ -81,13 +81,14 @@ jobs:
       - name: Upload to the Chrome Web Store
         env:
           EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
           PUBLISH: ${{ github.event_name == 'pull_request' || inputs.publish }}
         run: |
           zip="$(ls release/*.zip)"
-          npx --yes chrome-webstore-upload-cli@4 upload --source "$zip" --auto-publish=false
+          npx --yes chrome-webstore-upload-cli@4 upload --source "$zip"
           if [ "$PUBLISH" = "true" ]; then
             npx --yes chrome-webstore-upload-cli@4 publish
           fi
