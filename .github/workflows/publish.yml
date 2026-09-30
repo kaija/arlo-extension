@@ -1,0 +1,99 @@
+name: Publish to Chrome Web Store
+
+# Runs when a pull request is merged into `release`, or by hand from the
+# Actions tab (run it on the `release` branch). Each run bumps the version,
+# because the Web Store rejects an upload whose version is not higher than the
+# one it already has.
+on:
+  pull_request:
+    types: [closed]
+    branches: [release]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to raise
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      publish:
+        description: Submit for review after uploading (otherwise it stays a draft)
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Bump, build and upload
+    # A pull request that was closed without merging must not release anything.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Only release from the release branch
+        if: github.event_name == 'workflow_dispatch' && github.ref_name != 'release'
+        run: |
+          echo "Run this workflow on the release branch, not $GITHUB_REF_NAME." >&2
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          ref: release
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Bump the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          npm version "$BUMP" --no-git-tag-version
+          echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - run: npm run verify
+
+      - run: node scripts/package.mjs
+
+      # Pushed before uploading so a version is never handed to the store
+      # twice: a failed upload only skips a number.
+      - name: Commit the version and tag it
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): v$VERSION"
+          git tag "v$VERSION"
+          git push origin release "v$VERSION"
+
+      - name: Upload to the Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          PUBLISH: ${{ github.event_name == 'pull_request' || inputs.publish }}
+        run: |
+          zip="$(ls release/*.zip)"
+          npx --yes chrome-webstore-upload-cli@4 upload --source "$zip" --auto-publish=false
+          if [ "$PUBLISH" = "true" ]; then
+            npx --yes chrome-webstore-upload-cli@4 publish
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: gh release create "v$VERSION" release/*.zip --generate-notes
