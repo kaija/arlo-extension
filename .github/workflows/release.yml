@@ -11,7 +11,7 @@ permissions:
 jobs:
   release:
     name: Build and publish a release zip
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
