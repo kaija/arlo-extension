@@ -80,6 +80,14 @@ export function SendIcon({ size = 17 }: IconProps) {
   );
 }
 
+export function StopIcon({ size = 17 }: IconProps) {
+  return (
+    <svg {...svgProps(size)} fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
 export function ChevronIcon({ size = 15, className }: IconProps) {
   return (
     <svg {...svgProps(size)} className={className}>

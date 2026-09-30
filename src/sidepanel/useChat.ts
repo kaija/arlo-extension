@@ -36,6 +36,8 @@ export interface Chat {
   configured: boolean;
   error: string | null;
   send: (text: string) => Promise<void>;
+  /** Cancel the running turn, keeping whatever has streamed so far. */
+  stop: () => void;
   reset: () => void;
   dismissError: () => void;
   /** Grant Chrome access to the model's origin. Must be called from a click. */
@@ -192,6 +194,20 @@ export function useChat(): Chat {
     configured: !!profile,
     error,
     send,
+    stop: () => {
+      const controller = activeTurn.current;
+      if (!controller) return;
+      controller.abort();
+      setSession((current) => ({
+        ...current,
+        running: false,
+        messages: current.messages.map((m) =>
+          m.streaming
+            ? { ...m, streaming: false, text: m.text ? `${m.text}\n\n(Stopped)` : 'Stopped.' }
+            : m,
+        ),
+      }));
+    },
     reset: () => {
       activeTurn.current?.abort();
       history.current = [];

@@ -93,6 +93,7 @@ export function App() {
           <Composer
             placeholder={chat.session.running ? 'Arlo is working…' : 'Ask Arlo to build something…'}
             disabled={chat.session.running}
+            onStop={chat.session.running ? chat.stop : undefined}
             onSubmit={(prompt) => void chat.send(prompt)}
           />
         </Dock>

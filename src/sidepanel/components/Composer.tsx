@@ -1,10 +1,12 @@
 import { useState } from 'react';
 
-import { SendIcon } from '../../design-system/icons';
+import { SendIcon, StopIcon } from '../../design-system/icons';
 
 interface ComposerProps {
   placeholder: string;
   disabled?: boolean;
+  /** While set, the send button becomes a stop button. */
+  onStop?: () => void;
   onSubmit: (prompt: string) => void;
 }
 
@@ -12,7 +14,7 @@ interface ComposerProps {
  * Enter sends, Shift+Enter makes a new line. The field grows with its content
  * (`field-sizing`), which is why the send button aligns to the bottom.
  */
-export function Composer({ placeholder, disabled = false, onSubmit }: ComposerProps) {
+export function Composer({ placeholder, disabled = false, onStop, onSubmit }: ComposerProps) {
   const [text, setText] = useState('');
 
   const submit = () => {
@@ -39,16 +41,23 @@ export function Composer({ placeholder, disabled = false, onSubmit }: ComposerPr
           }
         }}
       />
-      <button
-        type="button"
-        className="composer__send"
-        onClick={submit}
-        disabled={disabled || !text.trim()}
-        title="Send"
-      >
-        <SendIcon size={15} />
-        <span className="visually-hidden">Send</span>
-      </button>
+      {onStop ? (
+        <button type="button" className="composer__send" onClick={onStop} title="Stop">
+          <StopIcon size={14} />
+          <span className="visually-hidden">Stop</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="composer__send"
+          onClick={submit}
+          disabled={disabled || !text.trim()}
+          title="Send"
+        >
+          <SendIcon size={15} />
+          <span className="visually-hidden">Send</span>
+        </button>
+      )}
     </div>
   );
 }
