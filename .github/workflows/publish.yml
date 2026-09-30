@@ -32,7 +32,7 @@ jobs:
     name: Bump, build and upload
     # A pull request that was closed without merging must not release anything.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
