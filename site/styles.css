@@ -196,3 +196,4 @@ code { font-family: var(--font-mono); font-size: 0.875em; background: var(--colo
   .privacy-card { padding: 28px 24px; }
   .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
 }
+.footer-links a[aria-current="page"] { color: var(--color-text-primary); }

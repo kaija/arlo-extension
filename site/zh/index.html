@@ -1,33 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arlo for Chrome — An AI assistant in your side panel</title>
-  <meta name="description" content="Arlo is a free, open-source Chrome extension: an AI assistant in the side panel that reads the page you are viewing and opens tabs for you. Bring your own model. No backend, no analytics." />
+  <title>Arlo for Chrome — 住在側邊欄的 AI 助理</title>
+  <meta name="description" content="Arlo 是免費開源的 Chrome 擴充功能：住在側邊欄的 AI 助理，能讀取你正在看的頁面並替你開啟分頁。模型自選，沒有後端、沒有分析追蹤。" />
   <meta name="theme-color" content="#5856D6" />
-  <meta property="og:title" content="Arlo for Chrome — An AI assistant in your side panel" />
-  <meta property="og:description" content="Arlo is a free, open-source Chrome extension: an AI assistant in the side panel that reads the page you are viewing and opens tabs for you. Bring your own model. No backend, no analytics." />
+  <meta property="og:title" content="Arlo for Chrome — 住在側邊欄的 AI 助理" />
+  <meta property="og:description" content="Arlo 是免費開源的 Chrome 擴充功能：住在側邊欄的 AI 助理，能讀取你正在看的頁面並替你開啟分頁。模型自選，沒有後端、沒有分析追蹤。" />
   <meta property="og:type" content="website" />
   <link rel="alternate" hreflang="en" href="https://kaija.github.io/arlo-extension/" />
   <link rel="alternate" hreflang="zh-Hant" href="https://kaija.github.io/arlo-extension/zh/" />
   <link rel="alternate" hreflang="x-default" href="https://kaija.github.io/arlo-extension/" />
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
   <nav class="nav" aria-label="Main navigation">
     <div class="nav-inner container">
-      <a href="./" class="nav-brand" aria-label="Arlo home"><svg class="nav-logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo</span></a>
+      <a href="./" class="nav-brand" aria-label="Arlo 首頁"><svg class="nav-logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo</span></a>
       <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#privacy">Privacy</a>
-        <a href="privacy.html">Privacy Policy</a>
+        <a href="#features">功能</a>
+        <a href="#how">使用方式</a>
+        <a href="#privacy">隱私</a>
+        <a href="privacy.html">隱私權政策</a>
         <a href="https://github.com/kaija/arlo-extension" class="btn btn-sm" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> GitHub</a>
       </div>
-      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <button class="nav-toggle" aria-label="切換選單" aria-expanded="false">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
     </div>
@@ -36,24 +36,24 @@
   <section class="hero">
     <div class="container">
       <div class="hero-content">
-        <div class="hero-badge">Chrome extension · Free &amp; Open Source · MIT</div>
-        <h1>An AI assistant<br/>in your side panel.</h1>
+        <div class="hero-badge">Chrome 擴充功能 · 免費開源 · MIT</div>
+        <h1>住在側邊欄的<br/>AI 助理。</h1>
         <p class="hero-subtitle">
-          Give Arlo a task in plain language. It reads the tab you’re looking at, opens tabs for you, and streams its answer as it works. Your model, your key, no backend.
+          用白話交辦任務。Arlo 會讀取你正在看的分頁、替你開啟分頁，並在作業過程中即時串流回覆。模型自選、金鑰自管，沒有後端。
         </p>
         <div class="hero-actions">
-          <a href="https://github.com/kaija/arlo-extension#getting-started" class="btn btn-primary" target="_blank" rel="noopener">Get Arlo</a>
-          <a href="privacy.html" class="btn btn-secondary">Privacy Policy</a>
+          <a href="https://github.com/kaija/arlo-extension#getting-started" class="btn btn-primary" target="_blank" rel="noopener">取得 Arlo</a>
+          <a href="privacy.html" class="btn btn-secondary">隱私權政策</a>
         </div>
       </div>
-      <div class="panel-frame" aria-label="Arlo side panel preview">
+      <div class="panel-frame" aria-label="Arlo 側邊欄預覽">
         <div class="panel-titlebar"><svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg> Arlo</div>
         <div class="panel-body">
-          <div class="bubble bubble-user">Summarize this article and open the sources it cites.</div>
+          <div class="bubble bubble-user">幫我摘要這篇文章，並開啟它引用的來源。</div>
           <div class="tool-chip">read_tab · detailed</div>
-          <div class="bubble bubble-arlo">The article argues that on-device models are now good enough for most summarization. Three sources are cited — opening them now.</div>
-          <div class="tool-chip">open_tabs · 3 tabs → Arlo group</div>
-          <div class="panel-input"><span>Ask Arlo…</span><span class="panel-stop">Stop</span></div>
+          <div class="bubble bubble-arlo">文章主張：裝置端模型已足以勝任大多數摘要工作。文中引用了三個來源，我現在就開啟。</div>
+          <div class="tool-chip">open_tabs · 3 個分頁 → Arlo 群組</div>
+          <div class="panel-input"><span>詢問 Arlo…</span><span class="panel-stop">停止</span></div>
         </div>
       </div>
     </div>
@@ -62,39 +62,39 @@
   <section class="features" id="features">
     <div class="container">
       <div class="section-header">
-        <h2>Built to stay out of your way</h2>
-        <p>A small, focused assistant that works on the page you’re on.</p>
+        <h2>不打擾你的小幫手</h2>
+        <p>小巧專注，只處理你正在看的頁面。</p>
       </div>
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
-          <h3>Reads the tab you’re on</h3>
-          <p>Ask about the page in front of you. Arlo reads it at the level of detail the task needs — compact, detailed, or raw HTML.</p>
+          <h3>讀取你正在看的分頁</h3>
+          <p>直接詢問眼前的頁面。Arlo 依任務需要選擇讀取的詳細程度——精簡、詳細或原始 HTML。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></div>
-          <h3>Lives in the side panel</h3>
-          <p>No new tab, no context switch. Arlo sits next to the page and streams its answer as it works.</p>
+          <h3>住在側邊欄</h3>
+          <p>不必開新分頁、不必切換情境。Arlo 就在頁面旁邊，邊工作邊串流回覆。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></div>
-          <h3>Opens tabs, keeps them tidy</h3>
-          <p>Every tab Arlo opens goes into an “Arlo” tab group, so you can see them all and close them in one click.</p>
+          <h3>開分頁，也幫你收好</h3>
+          <p>Arlo 開啟的每個分頁都會放進「Arlo」分頁群組，一眼看清，一鍵關閉。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></div>
-          <h3>Stop any time</h3>
-          <p>One click halts a running task. You always see what Arlo is doing while it does it.</p>
+          <h3>隨時可以停止</h3>
+          <p>一鍵即可中止執行中的任務，Arlo 做事的過程你全程看得到。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.6 7.6a5 5 0 1 1-7 7 5 5 0 0 1 7-7zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/></svg></div>
-          <h3>Bring your own model</h3>
-          <p>Point Arlo at any OpenAI-compatible endpoint — OpenAI, Anthropic, a proxy, or a local model server. Keep several profiles.</p>
+          <h3>自帶模型</h3>
+          <p>指向任何相容 OpenAI 的端點——OpenAI、Anthropic、代理伺服器或本機模型伺服器，並可保存多組設定檔。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
-          <h3>Permissions on your terms</h3>
-          <p>Nothing is granted at install. Site access is requested per origin, only when needed, and you can revoke it in Chrome.</p>
+          <h3>權限由你決定</h3>
+          <p>安裝時不授予任何權限。網站存取只在需要時逐一詢問，並可隨時在 Chrome 撤銷。</p>
         </div>
       </div>
     </div>
@@ -103,14 +103,14 @@
   <section class="steps" id="how">
     <div class="container">
       <div class="section-header">
-        <h2>Up and running in a minute</h2>
-        <p>There’s no server to start — an endpoint and a key are the whole setup.</p>
+        <h2>一分鐘上手</h2>
+        <p>不用啟動任何伺服器——一個端點加一把金鑰就完成設定。</p>
       </div>
       <ol class="steps-list">
-        <li><div><h3>Install and open the panel</h3><p>Click the Arlo toolbar icon to open the side panel.</p></div></li>
-        <li><div><h3>Add a model profile</h3><p>In the options page, enter an OpenAI-compatible endpoint and your API key. Choose whether the key is remembered or kept for the browser session only.</p></div></li>
-        <li><div><h3>Grant access when asked</h3><p>Chrome asks for access to your model’s site, and only if you choose, to all pages. Both are optional and revocable.</p></div></li>
-        <li><div><h3>Give it a task</h3><p>Describe what you want. Watch Arlo work, and stop it whenever you like.</p></div></li>
+        <li><div><h3>安裝並開啟側邊欄</h3><p>點擊工具列的 Arlo 圖示即可開啟側邊欄。</p></div></li>
+        <li><div><h3>新增模型設定檔</h3><p>在選項頁輸入相容 OpenAI 的端點與 API 金鑰，並選擇金鑰要長期記住，或只保留到瀏覽器工作階段結束。</p></div></li>
+        <li><div><h3>依提示授予權限</h3><p>Chrome 會詢問是否允許存取你的模型網站；若你願意，也可以允許存取所有網頁。兩者皆為選用，且可隨時撤銷。</p></div></li>
+        <li><div><h3>交辦任務</h3><p>描述你想做的事，看著 Arlo 工作，想停就停。</p></div></li>
       </ol>
     </div>
   </section>
@@ -118,17 +118,17 @@
   <section class="privacy-teaser" id="privacy">
     <div class="container">
       <div class="section-header">
-        <h2>Private by design</h2>
-        <p>Arlo has no backend of its own, so there is nothing for us to collect.</p>
+        <h2>隱私優先的設計</h2>
+        <p>Arlo 沒有自己的後端，所以我們沒有任何東西可以收集。</p>
       </div>
       <div class="privacy-card">
         <ul>
-          <li><strong>No backend, no analytics, no tracking.</strong> The extension never contacts a server we run.</li>
-          <li><strong>Keys and settings stay in your browser.</strong> Stored in Chrome’s extension storage on your device.</li>
-          <li><strong>Page content goes only to your model endpoint.</strong> And only when you run a task.</li>
-          <li><strong>Open source.</strong> Read exactly what it does on GitHub.</li>
+          <li><strong>沒有後端、沒有分析、沒有追蹤。</strong>擴充功能從不連線到我們營運的伺服器。</li>
+          <li><strong>金鑰與設定留在你的瀏覽器。</strong>儲存在裝置上的 Chrome 擴充功能儲存空間。</li>
+          <li><strong>頁面內容只會送到你的模型端點。</strong>而且只在你執行任務時。</li>
+          <li><strong>開放原始碼。</strong>在 GitHub 上查看它實際做了什麼。</li>
         </ul>
-        <a href="privacy.html" class="btn btn-primary">Read the full Privacy Policy</a>
+        <a href="privacy.html" class="btn btn-primary">閱讀完整隱私權政策</a>
       </div>
     </div>
   </section>
@@ -137,15 +137,15 @@
     <div class="container footer-inner">
       <div class="footer-brand"><svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo for Chrome</span></div>
       <div class="footer-links">
-        <a href="privacy.html">Privacy Policy</a>
+        <a href="privacy.html">隱私權政策</a>
         <a href="https://github.com/kaija/arlo-extension" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/kaija/arlo-extension/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
-        <a href="./" aria-current="page">English</a>
-        <a href="zh/">繁體中文</a>
-        <a href="https://www.arlo-ai.app/" target="_blank" rel="noopener">Arlo framework</a>
+        <a href="https://github.com/kaija/arlo-extension/blob/main/LICENSE" target="_blank" rel="noopener">MIT 授權</a>
+        <a href="../">English</a>
+        <a href="./" aria-current="page">繁體中文</a>
+        <a href="https://www.arlo-ai.app/" target="_blank" rel="noopener">Arlo 框架</a>
       </div>
     </div>
   </footer>
-  <script src="main.js"></script>
+  <script src="../main.js"></script>
 </body>
 </html>
