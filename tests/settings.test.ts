@@ -17,6 +17,18 @@ describe('settings', () => {
     await expect(loadSettings()).resolves.toEqual(DEFAULT_SETTINGS);
   });
 
+  it('defaults the turn limit to 25 and keeps it within bounds', async () => {
+    expect(DEFAULT_SETTINGS.maxTurns).toBe(25);
+    await saveSettings({ maxTurns: 40 });
+    expect((await loadSettings()).maxTurns).toBe(40);
+    await saveSettings({ maxTurns: 0 });
+    expect((await loadSettings()).maxTurns).toBe(1);
+    await saveSettings({ maxTurns: 5000 });
+    expect((await loadSettings()).maxTurns).toBe(100);
+    await chrome.storage.local.set({ 'arlo:settings': { maxTurns: 'lots' } });
+    expect((await loadSettings()).maxTurns).toBe(25);
+  });
+
   it('merges a patch over what is stored', async () => {
     await saveSettings({ theme: 'dark' });
     const profile = { ...createLlmProfile('openai-responses'), model: 'gpt-5.6-terra' };

@@ -43,14 +43,21 @@ export interface Settings {
   defaultLlmProfileId: string | null;
   /** Dark, light, or whatever the OS is set to. */
   theme: ThemePreference;
+  /** Most model calls the agent may make while answering one message. */
+  maxTurns: number;
   onboardingCompleted: boolean;
 }
+
+export const MAX_TURNS_MIN = 1;
+export const MAX_TURNS_MAX = 100;
+export const DEFAULT_MAX_TURNS = 25;
 
 /** Money and mail are blocked out of the box; the user can edit the list. */
 export const DEFAULT_SETTINGS: Settings = {
   llmProfiles: [],
   defaultLlmProfileId: null,
   theme: 'system',
+  maxTurns: DEFAULT_MAX_TURNS,
   onboardingCompleted: false,
 };
 
@@ -210,6 +217,11 @@ function normalizeProfile(value: unknown): LlmProfile | null {
   };
 }
 
+function normalizeMaxTurns(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_MAX_TURNS;
+  return Math.min(MAX_TURNS_MAX, Math.max(MAX_TURNS_MIN, Math.round(value)));
+}
+
 function normalizeSettings(value: unknown): Settings {
   const candidate = value && typeof value === 'object' ? (value as Partial<Settings>) : {};
   const llmProfiles = Array.isArray(candidate.llmProfiles)
@@ -226,6 +238,7 @@ function normalizeSettings(value: unknown): Settings {
     llmProfiles,
     defaultLlmProfileId,
     theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
+    maxTurns: normalizeMaxTurns(candidate.maxTurns),
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'
         ? candidate.onboardingCompleted

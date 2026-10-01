@@ -4,6 +4,7 @@ import { emptySession, type ChatMessage, type ChatSession } from '../core/chat';
 import { newId } from '../shared/messages';
 import { hasHostAccess, originPattern, requestHostAccess } from '../shared/model-access';
 import {
+  DEFAULT_MAX_TURNS,
   getDefaultLlmProfile,
   getDefaultLlmProfileSummary,
   loadSettings,
@@ -61,6 +62,7 @@ export function useChat(): Chat {
   // the panel when settings change somewhere else.
   const [endpoint, setEndpoint] = useState('');
   const full = useRef<LlmProfile | null>(null);
+  const maxTurns = useRef(DEFAULT_MAX_TURNS);
   // One conversation, carried across turns.
   const history = useRef<LocalAgentHistory>([]);
   const activeTurn = useRef<AbortController | null>(null);
@@ -72,6 +74,7 @@ export function useChat(): Chat {
       if (!live) return;
       const next = getDefaultLlmProfile(settings);
       full.current = next;
+      maxTurns.current = settings.maxTurns;
       setEndpoint(next?.baseUrl ?? '');
       setProfile(getDefaultLlmProfileSummary(settings));
     };
@@ -165,6 +168,7 @@ export function useChat(): Chat {
               replace({ text: answer, failed: true });
             },
           },
+          maxTurns.current,
           controller.signal,
         );
         history.current = outcome.history;

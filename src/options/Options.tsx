@@ -1,18 +1,29 @@
 import { useEffect, useState } from 'react';
 
 import { Logo } from '../design-system/icons';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../shared/settings';
+import {
+  DEFAULT_SETTINGS,
+  MAX_TURNS_MAX,
+  MAX_TURNS_MIN,
+  loadSettings,
+  saveSettings,
+  type Settings,
+} from '../shared/settings';
 import { THEME_PREFERENCES, themeLabel } from '../shared/theme';
+import { Field } from './controls';
 import { LlmProfiles } from './LlmProfiles';
 
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Held as text so the field can be emptied while typing a new number.
+  const [maxTurnsDraft, setMaxTurnsDraft] = useState(String(DEFAULT_SETTINGS.maxTurns));
 
   useEffect(() => {
     void loadSettings().then((next) => {
       setSettings(next);
+      setMaxTurnsDraft(String(next.maxTurns));
       setLoaded(true);
     });
   }, []);
@@ -72,6 +83,44 @@ export function Options() {
               </label>
             ))}
           </fieldset>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">Agent</h2>
+              <p className="card-sub">
+                How many steps Arlo may take to answer one message. Each model call, including the
+                ones that read or open a page, counts as a step. Raise it for long tasks; lower it
+                to cap cost.
+              </p>
+            </div>
+          </div>
+
+          <Field
+            id="max-turns"
+            label="Max turns"
+            hint={`${MAX_TURNS_MIN} to ${MAX_TURNS_MAX}. Default 25.`}
+          >
+            <input
+              id="max-turns"
+              className="input"
+              type="number"
+              inputMode="numeric"
+              min={MAX_TURNS_MIN}
+              max={MAX_TURNS_MAX}
+              step={1}
+              value={maxTurnsDraft}
+              onChange={(event) => setMaxTurnsDraft(event.target.value)}
+              onBlur={() => {
+                const parsed = Number.parseInt(maxTurnsDraft, 10);
+                const value = Number.isNaN(parsed) ? settings.maxTurns : parsed;
+                void update({ maxTurns: value }).then((next) =>
+                  setMaxTurnsDraft(String(next.maxTurns)),
+                );
+              }}
+            />
+          </Field>
         </section>
 
         {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}

@@ -71,10 +71,14 @@ describe('the in-panel agent turn', () => {
     run.mockResolvedValue(stream(['Open', 'ing G', 'mail.'], [{ role: 'assistant' }]));
     const onText = vi.fn();
 
-    const result = await runLocalTurn(profile(), 7, 'open gmail', [], {
-      onText,
-      onError: vi.fn(),
-    });
+    const result = await runLocalTurn(
+      profile(),
+      7,
+      'open gmail',
+      [],
+      { onText, onError: vi.fn() },
+      25,
+    );
 
     // Each update is a complete snapshot, not a delta — the transcript replaces.
     expect(onText.mock.calls.map(([m]) => m.text)).toEqual([
@@ -89,11 +93,19 @@ describe('the in-panel agent turn', () => {
     expect(setTracingDisabled).toHaveBeenCalledWith(true);
   });
 
+  it('passes the configured turn limit to the SDK run', async () => {
+    run.mockResolvedValue(stream(['ok']));
+
+    await runLocalTurn(profile(), 7, 'hi', [], { onText: vi.fn(), onError: vi.fn() }, 40);
+
+    expect(run.mock.calls[0]?.[2]).toMatchObject({ maxTurns: 40 });
+  });
+
   it('continues an existing thread instead of restarting it', async () => {
     run.mockResolvedValue(stream(['ok']));
     const history = [{ role: 'user', content: 'first' }] as unknown as LocalAgentHistory;
 
-    await runLocalTurn(profile(), 7, 'second', history, { onText: vi.fn(), onError: vi.fn() });
+    await runLocalTurn(profile(), 7, 'second', history, { onText: vi.fn(), onError: vi.fn() }, 25);
 
     expect(run.mock.calls[0]?.[1]).toEqual([...history, { role: 'user', content: 'second' }]);
   });
@@ -101,10 +113,14 @@ describe('the in-panel agent turn', () => {
   it('points the provider at the profile, and names the wire format', async () => {
     run.mockResolvedValue(stream(['ok']));
 
-    await runLocalTurn(profile({ apiContract: 'openai-responses' }), 7, 'hi', [], {
-      onText: vi.fn(),
-      onError: vi.fn(),
-    });
+    await runLocalTurn(
+      profile({ apiContract: 'openai-responses' }),
+      7,
+      'hi',
+      [],
+      { onText: vi.fn(), onError: vi.fn() },
+      25,
+    );
 
     expect(OpenAIProvider).toHaveBeenCalledWith({
       useResponses: true,
@@ -122,10 +138,14 @@ describe('the in-panel agent turn', () => {
 
   it('refuses a profile whose wire format the SDK cannot speak', async () => {
     await expect(
-      runLocalTurn(profile({ apiContract: 'anthropic-messages' }), 7, 'hi', [], {
-        onText: vi.fn(),
-        onError: vi.fn(),
-      }),
+      runLocalTurn(
+        profile({ apiContract: 'anthropic-messages' }),
+        7,
+        'hi',
+        [],
+        { onText: vi.fn(), onError: vi.fn() },
+        25,
+      ),
     ).rejects.toThrow(/OpenAI wire formats/);
     expect(run).not.toHaveBeenCalled();
   });
@@ -135,7 +155,7 @@ describe('the in-panel agent turn', () => {
     readCurrentTab.mockResolvedValue({ ok: true });
     openAgentTab.mockResolvedValue({ ok: true });
 
-    await runLocalTurn(profile(), 23, 'hi', [], { onText: vi.fn(), onError: vi.fn() });
+    await runLocalTurn(profile(), 23, 'hi', [], { onText: vi.fn(), onError: vi.fn() }, 25);
 
     const tools = tool.mock.calls.map(
       ([options]) => options as { name: string; execute: (input: unknown) => Promise<string> },

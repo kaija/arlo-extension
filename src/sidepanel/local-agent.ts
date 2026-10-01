@@ -163,6 +163,7 @@ export async function runLocalTurn(
   prompt: string,
   history: LocalAgentHistory,
   handlers: LocalTurnHandlers,
+  maxTurns: number,
   signal?: AbortSignal,
 ): Promise<LocalTurnResult> {
   // Tracing exports to OpenAI by default. Nothing about a user's browsing
@@ -181,7 +182,7 @@ export async function runLocalTurn(
     ? [...history, { role: 'user' as const, content: prompt }]
     : prompt;
 
-  const stream = await run(agent, input, { stream: true, ...(signal ? { signal } : {}) });
+  const stream = await run(agent, input, { stream: true, maxTurns, ...(signal ? { signal } : {}) });
 
   const messageId = `local_${Date.now().toString(36)}`;
   let text = '';
