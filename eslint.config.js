@@ -27,6 +27,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ['site/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        navigator: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
+  },
+  {
     // The theme boot script ships as-is to the browser, ahead of any bundle.
     files: ['public/**/*.js'],
     languageOptions: {
