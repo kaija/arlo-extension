@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arlo for Chrome — An AI assistant in your side panel</title>
+  <meta name="description" content="Arlo is a free, open-source Chrome extension: an AI assistant in the side panel that reads the page you are viewing and opens tabs for you. Bring your own model. No backend, no analytics." />
+  <meta name="theme-color" content="#5856D6" />
+  <meta property="og:title" content="Arlo for Chrome — An AI assistant in your side panel" />
+  <meta property="og:description" content="Arlo is a free, open-source Chrome extension: an AI assistant in the side panel that reads the page you are viewing and opens tabs for you. Bring your own model. No backend, no analytics." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="nav-inner container">
+      <a href="./" class="nav-brand" aria-label="Arlo home"><svg class="nav-logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo</span></a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/kaija/arlo-extension" class="btn btn-sm" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> GitHub</a>
+      </div>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">Chrome extension · Free &amp; Open Source · MIT</div>
+        <h1>An AI assistant<br/>in your side panel.</h1>
+        <p class="hero-subtitle">
+          Give Arlo a task in plain language. It reads the tab you’re looking at, opens tabs for you, and streams its answer as it works. Your model, your key, no backend.
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com/kaija/arlo-extension#getting-started" class="btn btn-primary" target="_blank" rel="noopener">Get Arlo</a>
+          <a href="privacy.html" class="btn btn-secondary">Privacy Policy</a>
+        </div>
+      </div>
+      <div class="panel-frame" aria-label="Arlo side panel preview">
+        <div class="panel-titlebar"><svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg> Arlo</div>
+        <div class="panel-body">
+          <div class="bubble bubble-user">Summarize this article and open the sources it cites.</div>
+          <div class="tool-chip">read_tab · detailed</div>
+          <div class="bubble bubble-arlo">The article argues that on-device models are now good enough for most summarization. Three sources are cited — opening them now.</div>
+          <div class="tool-chip">open_tabs · 3 tabs → Arlo group</div>
+          <div class="panel-input"><span>Ask Arlo…</span><span class="panel-stop">Stop</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <h2>Built to stay out of your way</h2>
+        <p>A small, focused assistant that works on the page you’re on.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>Reads the tab you’re on</h3>
+          <p>Ask about the page in front of you. Arlo reads it at the level of detail the task needs — compact, detailed, or raw HTML.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></div>
+          <h3>Lives in the side panel</h3>
+          <p>No new tab, no context switch. Arlo sits next to the page and streams its answer as it works.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></div>
+          <h3>Opens tabs, keeps them tidy</h3>
+          <p>Every tab Arlo opens goes into an “Arlo” tab group, so you can see them all and close them in one click.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></div>
+          <h3>Stop any time</h3>
+          <p>One click halts a running task. You always see what Arlo is doing while it does it.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.6 7.6a5 5 0 1 1-7 7 5 5 0 0 1 7-7zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/></svg></div>
+          <h3>Bring your own model</h3>
+          <p>Point Arlo at any OpenAI-compatible endpoint — OpenAI, Anthropic, a proxy, or a local model server. Keep several profiles.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <h3>Permissions on your terms</h3>
+          <p>Nothing is granted at install. Site access is requested per origin, only when needed, and you can revoke it in Chrome.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="steps" id="how">
+    <div class="container">
+      <div class="section-header">
+        <h2>Up and running in a minute</h2>
+        <p>There’s no server to start — an endpoint and a key are the whole setup.</p>
+      </div>
+      <ol class="steps-list">
+        <li><div><h3>Install and open the panel</h3><p>Click the Arlo toolbar icon to open the side panel.</p></div></li>
+        <li><div><h3>Add a model profile</h3><p>In the options page, enter an OpenAI-compatible endpoint and your API key. Choose whether the key is remembered or kept for the browser session only.</p></div></li>
+        <li><div><h3>Grant access when asked</h3><p>Chrome asks for access to your model’s site, and only if you choose, to all pages. Both are optional and revocable.</p></div></li>
+        <li><div><h3>Give it a task</h3><p>Describe what you want. Watch Arlo work, and stop it whenever you like.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="privacy-teaser" id="privacy">
+    <div class="container">
+      <div class="section-header">
+        <h2>Private by design</h2>
+        <p>Arlo has no backend of its own, so there is nothing for us to collect.</p>
+      </div>
+      <div class="privacy-card">
+        <ul>
+          <li><strong>No backend, no analytics, no tracking.</strong> The extension never contacts a server we run.</li>
+          <li><strong>Keys and settings stay in your browser.</strong> Stored in Chrome’s extension storage on your device.</li>
+          <li><strong>Page content goes only to your model endpoint.</strong> And only when you run a task.</li>
+          <li><strong>Open source.</strong> Read exactly what it does on GitHub.</li>
+        </ul>
+        <a href="privacy.html" class="btn btn-primary">Read the full Privacy Policy</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand"><svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo for Chrome</span></div>
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/kaija/arlo-extension" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/kaija/arlo-extension/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://www.arlo-ai.app/" target="_blank" rel="noopener">Arlo framework</a>
+      </div>
+    </div>
+  </footer>
+  <script src="main.js"></script>
+</body>
+</html>

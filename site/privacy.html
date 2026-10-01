@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Arlo for Chrome</title>
+  <meta name="description" content="How the Arlo Chrome extension handles your data: no backend, no analytics, and page content sent only to the model endpoint you configure." />
+  <meta name="theme-color" content="#5856D6" />
+  <meta property="og:title" content="Privacy Policy — Arlo for Chrome" />
+  <meta property="og:description" content="How the Arlo Chrome extension handles your data: no backend, no analytics, and page content sent only to the model endpoint you configure." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="nav-inner container">
+      <a href="./" class="nav-brand" aria-label="Arlo home"><svg class="nav-logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo</span></a>
+      <div class="nav-links">
+        <a href="./#features">Features</a>
+        <a href="./#how">How it works</a>
+        <a href="./#privacy">Privacy</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/kaija/arlo-extension" class="btn btn-sm" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> GitHub</a>
+      </div>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="container">
+      <a href="./" class="page-back">← Back to Arlo</a>
+      <h1>Privacy Policy</h1>
+      <p>Arlo for Chrome &middot; Last updated: October 1, 2026</p>
+    </div>
+  </header>
+
+  <main class="prose">
+    <div class="container">
+      <h2>Summary</h2>
+      <p>Arlo has no backend and no analytics. We do not collect, store, sell, or share any of your data. Your settings and API key stay in your browser. Page content leaves your browser only to reach the model endpoint <em>you</em> configured, and only when you run a task.</p>
+
+      <h2>What Arlo handles</h2>
+      <ul>
+        <li><strong>Model profiles and preferences</strong> — endpoint URLs, model names, and theme. Stored in Chrome’s extension storage on your device.</li>
+        <li><strong>API keys</strong> — for each profile you choose whether Arlo remembers the key (kept in local extension storage) or holds it for the current browser session only (cleared when the browser closes). Keys are sent only to the endpoint of the profile they belong to.</li>
+        <li><strong>Website content</strong> — when you give Arlo a task that needs a page, it reads the text of the tab you are viewing. Arlo reads a page only when you ask. The content, together with your prompt, is sent to your configured model endpoint to produce an answer.</li>
+        <li><strong>Tab information</strong> — to open tabs and group them in an “Arlo” group, Arlo creates tabs and tab groups. Arlo does not keep a record of your browsing history.</li>
+      </ul>
+
+      <h2>What Arlo does not do</h2>
+      <ul>
+        <li>No developer-operated server — Arlo never sends data to us.</li>
+        <li>No analytics, telemetry, advertising, or tracking of any kind.</li>
+        <li>No sale or transfer of user data to third parties, other than sending your task to the model endpoint you chose.</li>
+        <li>No use of data for purposes unrelated to Arlo’s single purpose, or for creditworthiness or lending.</li>
+        <li>No remote code — everything Arlo runs ships inside the extension.</li>
+      </ul>
+
+      <h2>Your model provider</h2>
+      <p>The endpoint you configure (for example OpenAI, Anthropic, a proxy, or a local server) receives your prompt and any page content Arlo sends with it. That provider’s own privacy policy and terms govern how it handles that data. If you want everything to stay on your machine, point Arlo at a local model server.</p>
+
+      <h2>Permissions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Permission</th><th>Why Arlo needs it</th></tr></thead>
+          <tbody>
+            <tr><td><code>activeTab</code></td><td>Read the page you opened Arlo from, only after you click the toolbar icon.</td></tr>
+            <tr><td><code>scripting</code></td><td>Run the page reader inside the current tab to extract its text.</td></tr>
+            <tr><td><code>sidePanel</code></td><td>Arlo’s interface is the Chrome side panel.</td></tr>
+            <tr><td><code>storage</code></td><td>Save your profiles, API key, and preferences in the browser.</td></tr>
+            <tr><td><code>tabGroups</code></td><td>Put every tab Arlo opens into an “Arlo” group so you can see and close them.</td></tr>
+            <tr><td>Optional site access</td><td>Nothing is granted at install. Chrome asks for (a) the origin of your model endpoint, or (b) all pages, if you choose to let Arlo read without a toolbar click. You can revoke either in Chrome at any time.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Your control</h2>
+      <ul>
+        <li>Stop a running task at any time with one click.</li>
+        <li>Delete a profile or key from the options page.</li>
+        <li>Revoke site access from the extension’s details page in Chrome.</li>
+        <li>Uninstall Arlo to remove all of its stored data from your browser.</li>
+      </ul>
+
+      <h2>Children</h2>
+      <p>Arlo is a general-purpose tool and is not directed at children under 13.</p>
+
+      <h2>Changes to this policy</h2>
+      <p>If this policy changes, the updated version will be posted on this page with a new date. The full history is public in the <a href="https://github.com/kaija/arlo-extension/commits/main/site/privacy.html" target="_blank" rel="noopener">repository</a>.</p>
+
+      <h2>Contact</h2>
+      <p>Questions or concerns? Open an issue at <a href="https://github.com/kaija/arlo-extension/issues" target="_blank" rel="noopener">github.com/kaija/arlo-extension/issues</a>.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand"><svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#5856D6"/><path d="M8 9L13 14L8 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 19H20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg><span>Arlo for Chrome</span></div>
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/kaija/arlo-extension" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/kaija/arlo-extension/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://www.arlo-ai.app/" target="_blank" rel="noopener">Arlo framework</a>
+      </div>
+    </div>
+  </footer>
+  <script src="main.js"></script>
+</body>
+</html>
