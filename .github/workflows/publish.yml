@@ -1,9 +1,10 @@
-name: Publish to Chrome Web Store
+name: Upload to Chrome Web Store
 
 # Runs when a pull request is merged into `release`, or by hand from the
 # Actions tab (run it on the `release` branch). Each run bumps the version,
 # because the Web Store rejects an upload whose version is not higher than the
 # one it already has.
+# Uploads stay as drafts; submit for review and publish manually in the store.
 on:
   pull_request:
     types: [closed]
@@ -15,10 +16,6 @@ on:
         type: choice
         options: [patch, minor, major]
         default: patch
-      publish:
-        description: Submit for review after uploading (otherwise it stays a draft)
-        type: boolean
-        default: true
 
 concurrency:
   group: publish
@@ -85,13 +82,9 @@ jobs:
           CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          PUBLISH: ${{ github.event_name == 'pull_request' || inputs.publish }}
         run: |
           zip="$(ls release/*.zip)"
           npx --yes chrome-webstore-upload-cli@4 upload --source "$zip"
-          if [ "$PUBLISH" = "true" ]; then
-            npx --yes chrome-webstore-upload-cli@4 publish
-          fi
 
       - name: Create GitHub release
         env:
