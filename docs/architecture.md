@@ -114,6 +114,11 @@ lives in the project's git history rather than the tree.
 
 ## Known gaps
 
+- **Gemini rides on Google's OpenAI-compatible endpoint**, not native `generateContent`. Its
+  tools are sent non-strict with optional fields omitted, since strict mode and nullable types
+  are undocumented there. Gemini 3 also requires each tool call's `thought_signature` to be sent
+  back; the SDK's streaming reader drops it, so `gemini-fetch.ts` records it from responses and
+  restores it on the next request. Compatibility is in beta on Google's side.
 - **Anthropic profiles cannot run a turn.** The Agents SDK speaks the OpenAI wire formats, so
   `anthropic-messages` needs a `Model` adapter. The contract is still offered — stored profiles
   keep working for model discovery — and the profile editor says so, but a turn stops with an

@@ -13,6 +13,7 @@ import {
   InfoIcon,
   WarningIcon,
 } from '../design-system/icons';
+import { useOptionsText } from './text';
 
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
 
@@ -91,6 +92,7 @@ interface AlertProps {
 }
 
 export function Alert({ tone = 'info', title, children, onClose }: AlertProps) {
+  const t = useOptionsText();
   const Icon = TONE_ICON[tone];
   return (
     <div
@@ -105,7 +107,7 @@ export function Alert({ tone = 'info', title, children, onClose }: AlertProps) {
         {children ? <div className="alert-body">{children}</div> : null}
       </div>
       {onClose ? (
-        <button type="button" className="alert-close" aria-label="Dismiss" onClick={onClose}>
+        <button type="button" className="alert-close" aria-label={t.dismiss} onClick={onClose}>
           <CloseIcon size={16} />
         </button>
       ) : null}

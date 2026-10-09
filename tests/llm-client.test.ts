@@ -57,4 +57,18 @@ describe('model discovery', () => {
       }),
     );
   });
+
+  it('lists Gemini models with bearer auth and strips the models/ prefix', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: [{ id: 'models/gemini-b' }, { id: 'models/gemini-a' }] }),
+    );
+    const result = await listModels(profile('gemini'));
+    expect(result).toMatchObject({ status: 'available', models: ['gemini-a', 'gemini-b'] });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://generativelanguage.googleapis.com/v1beta/openai/models',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-secret' }),
+      }),
+    );
+  });
 });

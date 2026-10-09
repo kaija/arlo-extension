@@ -2,6 +2,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import type { ChatMessage } from '../../core/chat';
+import { useLanguage, useText } from '../language';
 
 /**
  * The transcript. An assistant turn appears the moment it is asked for, so the
@@ -9,14 +10,19 @@ import type { ChatMessage } from '../../core/chat';
  * happened.
  */
 export function MessageList({ messages }: { messages: ChatMessage[] }) {
+  const text = useText();
+  const language = useLanguage();
   return (
     <>
       {messages.map((message) =>
         message.role === 'user' ? (
           <section className="task-message" key={message.id}>
             <p className="task-message__label">
-              You ·{' '}
-              {new Date(message.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              {text.you} ·{' '}
+              {new Date(message.at).toLocaleTimeString(language, {
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
             </p>
             <p className="task-message__text">{message.text}</p>
           </section>
@@ -42,7 +48,7 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
             {message.streaming ? (
               <span className="reply__working">
                 <span className="planning__spinner" aria-hidden="true" />
-                Working…
+                {text.working}
               </span>
             ) : null}
           </section>

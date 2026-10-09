@@ -86,6 +86,9 @@ describe('LLM profiles', () => {
     expect(profileEndpoint(anthropic)).toBe('https://api.anthropic.com/v1/messages');
     expect(profileEndpoint(responses)).toBe('https://api.openai.com/v1/responses');
     expect(profileEndpoint(chat)).toBe('https://api.openai.com/v1/chat/completions');
+    expect(profileEndpoint(createLlmProfile('gemini'))).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    );
   });
 
   it('warns only for non-loopback HTTP origins', () => {

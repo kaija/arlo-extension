@@ -196,10 +196,40 @@ requires the user to confirm the new data destination.
 
 The turn runs on the OpenAI Agents SDK inside the panel
 ([`src/sidepanel/local-agent.ts`](src/sidepanel/local-agent.ts)); the model is reached directly
-through an `OpenAI` client with tracing disabled. Anthropic profiles are still offered for model
+through an `OpenAI` client with tracing disabled. Google Gemini profiles run over Gemini's OpenAI-compatible endpoint. Anthropic profiles are still offered for model
 discovery but cannot run a turn — the SDK speaks only the OpenAI wire formats. The service
 worker's own call, `GET <endpoint>/models` for Settings, lives in
 [`src/background/llm-client.ts`](src/background/llm-client.ts).
+
+### Language
+
+Settings has a language choice — English (default), 繁體中文 or 日本語. It sets the wording of the
+Settings page ([`src/options/text.ts`](src/options/text.ts)) and the side panel
+([`src/sidepanel/text.tsx`](src/sidepanel/text.tsx)), the suggested tasks on the start screen, and
+the language Arlo replies in unless you write to it in another one. Each start screen draws three
+suggestions at random from a larger pool per language
+([`src/core/page-suggestions.ts`](src/core/page-suggestions.ts)). To add a language, extend
+`LANGUAGES` in [`src/shared/language.ts`](src/shared/language.ts) and fill in the three text files;
+the type checker names whatever is missing.
+
+### Voice input
+
+An OpenAI Responses, Chat Completions or Gemini profile can also name a **Voice model**. With one
+set, the chat box gets a microphone button that dictates a task, and words appear as you speak
+([`src/sidepanel/voice.ts`](src/sidepanel/voice.ts)):
+
+- OpenAI-style profiles stream 24 kHz PCM to `<Base URL>/realtime?intent=transcription`
+  (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`).
+- Gemini profiles use the Live API socket with input transcription on
+  (`gemini-3.5-transcribe-live`).
+
+Chinese comes back as Traditional, with Taiwan wording: a Simplified transcript is converted, one
+that is already Traditional is left alone.
+
+The transcript goes into the chat box to be checked; "Send right after I stop speaking" in Settings
+sends it at once. Audio goes only to the profile's own origin. Chrome often cannot show the
+microphone prompt in the side panel, so Settings has an **Allow microphone** button that asks from a
+normal tab.
 
 ## CI
 
