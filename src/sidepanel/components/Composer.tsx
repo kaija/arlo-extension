@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { MicIcon, SendIcon, StopIcon } from '../../design-system/icons';
 import type { LlmProfile } from '../../shared/settings';
+import { useText } from '../language';
 import { startDictation, type Dictation } from '../voice';
 
 /** Turns the profile's voice model into a microphone button. */
@@ -42,6 +43,7 @@ export function Composer({
   history = [],
   voice,
 }: ComposerProps) {
+  const labels = useText();
   const [text, setText] = useState('');
   // Position in `history` while browsing, or null when typing a fresh draft.
   const [cursor, setCursor] = useState<number | null>(null);
@@ -183,10 +185,10 @@ export function Composer({
   const listening = voiceState === 'listening';
   const voiceLabel =
     voiceState === 'listening'
-      ? 'Stop dictation'
+      ? labels.stopDictation
       : voiceState === 'idle'
-        ? 'Speak'
-        : 'Cancel dictation';
+        ? labels.speak
+        : labels.cancelDictation;
 
   return (
     <>
@@ -199,8 +201,8 @@ export function Composer({
         <textarea
           className="composer__input"
           rows={1}
-          placeholder={listening ? 'Listening…' : placeholder}
-          aria-label="What should Arlo do?"
+          placeholder={listening ? labels.listening : placeholder}
+          aria-label={labels.composerLabel}
           value={text}
           disabled={disabled}
           ref={input}
@@ -237,9 +239,9 @@ export function Composer({
           </button>
         ) : null}
         {onStop ? (
-          <button type="button" className="composer__send" onClick={onStop} title="Stop">
+          <button type="button" className="composer__send" onClick={onStop} title={labels.stop}>
             <StopIcon size={14} />
-            <span className="visually-hidden">Stop</span>
+            <span className="visually-hidden">{labels.stop}</span>
           </button>
         ) : (
           <button
@@ -247,10 +249,10 @@ export function Composer({
             className="composer__send"
             onClick={() => submit()}
             disabled={disabled || !text.trim()}
-            title="Send"
+            title={labels.send}
           >
             <SendIcon size={15} />
-            <span className="visually-hidden">Send</span>
+            <span className="visually-hidden">{labels.send}</span>
           </button>
         )}
       </div>

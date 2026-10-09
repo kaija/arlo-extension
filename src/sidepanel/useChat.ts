@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { emptySession, type ChatMessage, type ChatSession } from '../core/chat';
+import { DEFAULT_LANGUAGE, type Language } from '../shared/language';
 import { newId } from '../shared/messages';
 import { hasHostAccess, originPattern, requestHostAccess } from '../shared/model-access';
 import {
@@ -67,6 +68,7 @@ export function useChat(): Chat {
   const [endpoint, setEndpoint] = useState('');
   const full = useRef<LlmProfile | null>(null);
   const maxTurns = useRef(DEFAULT_MAX_TURNS);
+  const language = useRef<Language>(DEFAULT_LANGUAGE);
   // One conversation, carried across turns.
   const history = useRef<LocalAgentHistory>([]);
   const activeTurn = useRef<AbortController | null>(null);
@@ -79,6 +81,7 @@ export function useChat(): Chat {
       const next = getDefaultLlmProfile(settings);
       full.current = next;
       maxTurns.current = settings.maxTurns;
+      language.current = settings.language;
       setEndpoint(next?.baseUrl ?? '');
       setProfile(getDefaultLlmProfileSummary(settings));
       setVoice(
@@ -177,6 +180,7 @@ export function useChat(): Chat {
           },
           maxTurns.current,
           controller.signal,
+          language.current,
         );
         history.current = outcome.history;
         replace({

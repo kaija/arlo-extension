@@ -201,6 +201,17 @@ discovery but cannot run a turn — the SDK speaks only the OpenAI wire formats.
 worker's own call, `GET <endpoint>/models` for Settings, lives in
 [`src/background/llm-client.ts`](src/background/llm-client.ts).
 
+### Language
+
+Settings has a language choice — English (default), 繁體中文 or 日本語. It sets the wording of the
+Settings page ([`src/options/text.ts`](src/options/text.ts)) and the side panel
+([`src/sidepanel/text.tsx`](src/sidepanel/text.tsx)), the suggested tasks on the start screen, and
+the language Arlo replies in unless you write to it in another one. Each start screen draws three
+suggestions at random from a larger pool per language
+([`src/core/page-suggestions.ts`](src/core/page-suggestions.ts)). To add a language, extend
+`LANGUAGES` in [`src/shared/language.ts`](src/shared/language.ts) and fill in the three text files;
+the type checker names whatever is missing.
+
 ### Voice input
 
 An OpenAI Responses, Chat Completions or Gemini profile can also name a **Voice model**. With one

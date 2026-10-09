@@ -23,6 +23,7 @@ const settings = {
     },
   ],
   defaultLlmProfileId: 'profile_dev',
+  language: params.get('lang') ?? 'en',
   onboardingCompleted: true,
 };
 

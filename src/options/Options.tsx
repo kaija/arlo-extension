@@ -9,9 +9,12 @@ import {
   saveSettings,
   type Settings,
 } from '../shared/settings';
-import { THEME_PREFERENCES, themeLabel } from '../shared/theme';
+import { LANGUAGES, languageLabel } from '../shared/language';
+import { LanguageContext } from '../shared/language-context';
+import { THEME_PREFERENCES } from '../shared/theme';
 import { Alert, Field, Switch } from './controls';
 import { LlmProfiles } from './LlmProfiles';
+import { optionsText } from './text';
 
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -29,6 +32,11 @@ export function Options() {
   }, []);
 
   const [mic, setMic] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
+  const t = optionsText(settings.language);
+
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+  }, [settings.language]);
 
   /**
    * The side panel often cannot show Chrome's microphone prompt, but this page
@@ -38,15 +46,12 @@ export function Options() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       for (const track of stream.getTracks()) track.stop();
-      setMic({ tone: 'success', text: 'Microphone allowed. The panel can now listen.' });
+      setMic({ tone: 'success', text: t.micAllowed });
     } catch (cause) {
       const name = cause instanceof DOMException ? cause.name : '';
       setMic({
         tone: 'warning',
-        text:
-          name === 'NotFoundError'
-            ? 'No microphone was found.'
-            : 'Chrome did not allow the microphone. Check the site settings for this extension and try again.',
+        text: name === 'NotFoundError' ? t.micNotFound : t.micDenied,
       });
     }
   };
@@ -59,40 +64,38 @@ export function Options() {
     return next;
   };
 
+  // Nothing is drawn until the saved language is known, so the page never
+  // flashes in English first.
+  if (!loaded) return null;
+
   return (
-    <>
+    <LanguageContext.Provider value={settings.language}>
       <header className="topbar">
         <div className="topbar__inner">
           <span className="brand">
             <Logo size={28} />
-            Arlo <span>Settings</span>
+            Arlo <span>{t.brandSuffix}</span>
           </span>
-          {saved ? <span className="badge badge-success">Saved</span> : null}
+          {saved ? <span className="badge badge-success">{t.saved}</span> : null}
         </div>
       </header>
 
       <main className="page">
         <div className="page-intro">
-          <h1>Settings</h1>
-          <p>
-            Arlo runs its agent inside the side panel. Give it a model to think with — there is
-            nothing else to set up.
-          </p>
+          <h1>{t.title}</h1>
+          <p>{t.intro}</p>
         </div>
 
         <section className="card">
           <div className="card-header">
             <div>
-              <h2 className="card-title">Appearance</h2>
-              <p className="card-sub">
-                Applies to Settings and to the side panel, immediately. System follows whatever this
-                computer is set to.
-              </p>
+              <h2 className="card-title">{t.appearanceTitle}</h2>
+              <p className="card-sub">{t.appearanceSub}</p>
             </div>
           </div>
 
           <fieldset className="segmented">
-            <legend className="visually-hidden">Theme</legend>
+            <legend className="visually-hidden">{t.themeLegend}</legend>
             {THEME_PREFERENCES.map((preference) => (
               <label className="segmented__option" key={preference}>
                 <input
@@ -102,7 +105,7 @@ export function Options() {
                   checked={settings.theme === preference}
                   onChange={() => void update({ theme: preference })}
                 />
-                <span>{themeLabel(preference)}</span>
+                <span>{t.theme[preference]}</span>
               </label>
             ))}
           </fieldset>
@@ -111,19 +114,40 @@ export function Options() {
         <section className="card">
           <div className="card-header">
             <div>
-              <h2 className="card-title">Agent</h2>
-              <p className="card-sub">
-                How many steps Arlo may take to answer one message. Each model call, including the
-                ones that read or open a page, counts as a step. Raise it for long tasks; lower it
-                to cap cost.
-              </p>
+              <h2 className="card-title">{t.languageTitle}</h2>
+              <p className="card-sub">{t.languageSub}</p>
+            </div>
+          </div>
+
+          <fieldset className="segmented">
+            <legend className="visually-hidden">{t.languageLegend}</legend>
+            {LANGUAGES.map((language) => (
+              <label className="segmented__option" key={language}>
+                <input
+                  type="radio"
+                  name="language"
+                  value={language}
+                  checked={settings.language === language}
+                  onChange={() => void update({ language })}
+                />
+                <span>{languageLabel(language)}</span>
+              </label>
+            ))}
+          </fieldset>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">{t.agentTitle}</h2>
+              <p className="card-sub">{t.agentSub}</p>
             </div>
           </div>
 
           <Field
             id="max-turns"
-            label="Max turns"
-            hint={`${MAX_TURNS_MIN} to ${MAX_TURNS_MAX}. Default 25.`}
+            label={t.maxTurnsLabel}
+            hint={t.maxTurnsHint(MAX_TURNS_MIN, MAX_TURNS_MAX)}
           >
             <input
               id="max-turns"
@@ -149,35 +173,29 @@ export function Options() {
         <section className="card">
           <div className="card-header">
             <div>
-              <h2 className="card-title">Voice input</h2>
-              <p className="card-sub">
-                Turn it on per profile under AI connections by choosing a Voice model. Then the chat
-                box gets a microphone button, and your words appear as you speak.
-              </p>
+              <h2 className="card-title">{t.voiceTitle}</h2>
+              <p className="card-sub">{t.voiceSub}</p>
             </div>
           </div>
 
           <div className="form-stack">
             <Switch
               checked={settings.voiceAutoSend}
-              label="Send right after I stop speaking"
+              label={t.autoSendLabel}
               onChange={(voiceAutoSend) => void update({ voiceAutoSend })}
             />
-            <p className="field-hint">
-              Off by default: the transcript lands in the chat box so you can check it before Arlo
-              acts on it.
-            </p>
+            <p className="field-hint">{t.autoSendHint}</p>
             <div className="row">
               <button type="button" className="btn btn-sm" onClick={() => void allowMicrophone()}>
-                Allow microphone
+                {t.allowMicrophone}
               </button>
             </div>
             {mic ? <Alert tone={mic.tone}>{mic.text}</Alert> : null}
           </div>
         </section>
 
-        {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}
+        <LlmProfiles settings={settings} onUpdate={update} />
       </main>
-    </>
+    </LanguageContext.Provider>
   );
 }

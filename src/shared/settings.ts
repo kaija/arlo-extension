@@ -1,3 +1,4 @@
+import { DEFAULT_LANGUAGE, isLanguage, type Language } from './language';
 import { isThemePreference, type ThemePreference } from './theme';
 
 export const LLM_API_CONTRACTS = [
@@ -47,6 +48,8 @@ export interface Settings {
   defaultLlmProfileId: string | null;
   /** Dark, light, or whatever the OS is set to. */
   theme: ThemePreference;
+  /** What the side panel says, and what the agent replies in unless you write in another language. */
+  language: Language;
   /** Most model calls the agent may make while answering one message. */
   maxTurns: number;
   /** Send a dictated message as soon as it is transcribed, instead of leaving it to edit. */
@@ -63,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   llmProfiles: [],
   defaultLlmProfileId: null,
   theme: 'system',
+  language: DEFAULT_LANGUAGE,
   maxTurns: DEFAULT_MAX_TURNS,
   voiceAutoSend: false,
   onboardingCompleted: false,
@@ -174,19 +178,33 @@ export function profileModelsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): str
   return `${normalizeBaseUrl(profile.baseUrl)}/models`;
 }
 
-export function validateLlmProfile(profile: LlmProfile): string[] {
-  const errors: string[] = [];
-  if (!profile.name.trim()) errors.push('Profile name is required.');
-  if (!profile.model.trim()) errors.push('Model is required.');
+export type ProfileError = 'name' | 'model' | 'baseUrlProtocol' | 'baseUrlInvalid';
+
+export function profileErrors(profile: LlmProfile): ProfileError[] {
+  const errors: ProfileError[] = [];
+  if (!profile.name.trim()) errors.push('name');
+  if (!profile.model.trim()) errors.push('model');
   try {
     const parsed = new URL(normalizeBaseUrl(profile.baseUrl));
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      errors.push('Base URL must use HTTP or HTTPS.');
+      errors.push('baseUrlProtocol');
     }
   } catch {
-    errors.push('Enter a valid Base URL.');
+    errors.push('baseUrlInvalid');
   }
   return errors;
+}
+
+const PROFILE_ERROR_TEXT: Record<ProfileError, string> = {
+  name: 'Profile name is required.',
+  model: 'Model is required.',
+  baseUrlProtocol: 'Base URL must use HTTP or HTTPS.',
+  baseUrlInvalid: 'Enter a valid Base URL.',
+};
+
+/** English messages; the Settings page maps the codes to the chosen language itself. */
+export function validateLlmProfile(profile: LlmProfile): string[] {
+  return profileErrors(profile).map((code) => PROFILE_ERROR_TEXT[code]);
 }
 
 export function isRemoteHttpOrigin(origin: string): boolean {
@@ -294,6 +312,7 @@ function normalizeSettings(value: unknown): Settings {
     llmProfiles,
     defaultLlmProfileId,
     theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
+    language: isLanguage(candidate.language) ? candidate.language : DEFAULT_LANGUAGE,
     maxTurns: normalizeMaxTurns(candidate.maxTurns),
     voiceAutoSend: candidate.voiceAutoSend === true,
     onboardingCompleted:
