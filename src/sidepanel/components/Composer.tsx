@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { SendIcon, StopIcon } from '../../design-system/icons';
+import { MicIcon, SendIcon, StopIcon } from '../../design-system/icons';
+import type { LlmProfile } from '../../shared/settings';
+import { startDictation, type Dictation } from '../voice';
+
+/** Turns the profile's voice model into a microphone button. */
+export interface ComposerVoice {
+  profile: LlmProfile;
+  /** Send straight away once the words are transcribed. */
+  autoSend: boolean;
+}
+
+type VoiceState = 'idle' | 'starting' | 'listening' | 'processing';
 
 interface ComposerProps {
   placeholder: string;
@@ -10,6 +21,8 @@ interface ComposerProps {
   onSubmit: (prompt: string) => void;
   /** Earlier prompts, oldest first, recalled with the up and down arrows. */
   history?: readonly string[];
+  /** When set, a microphone button dictates into the field. */
+  voice?: ComposerVoice;
 }
 
 /**
@@ -27,6 +40,7 @@ export function Composer({
   onStop,
   onSubmit,
   history = [],
+  voice,
 }: ComposerProps) {
   const [text, setText] = useState('');
   // Position in `history` while browsing, or null when typing a fresh draft.
@@ -34,6 +48,33 @@ export function Composer({
   const draft = useRef('');
   const input = useRef<HTMLTextAreaElement>(null);
   const caretToEnd = useRef(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const dictation = useRef<Dictation | null>(null);
+  // Bumped on every start and cancel, so a microphone that finishes opening
+  // after the user changed their mind can be closed again.
+  const attempt = useRef(0);
+  // A profile change or a run starting must not leave the microphone open, so
+  // the state belongs to the key it was started under and reads as idle once
+  // that key no longer matches.
+  const voiceKey = voice && !disabled ? `${voice.profile.id}:${voice.profile.voiceMode}` : '';
+  const [voiceSession, setVoiceSession] = useState<{ key: string; state: VoiceState }>({
+    key: '',
+    state: 'idle',
+  });
+  const voiceState: VoiceState = voiceSession.key === voiceKey ? voiceSession.state : 'idle';
+  const setVoiceState = (state: VoiceState) => setVoiceSession({ key: voiceKey, state });
+  // Read when a transcript arrives, which can be long after the click.
+  const latest = useRef({ autoSend: false, submit: (_value: string) => {} });
+
+  useEffect(
+    () => () => {
+      dictation.current?.cancel();
+      dictation.current = null;
+      // Otherwise "listening" would come back with the key once a run ends.
+      setVoiceSession({ key: '', state: 'idle' });
+    },
+    [voiceKey],
+  );
 
   // A recalled prompt should leave the caret after its last character.
   useEffect(() => {
@@ -49,13 +90,76 @@ export function Composer({
     caretToEnd.current = true;
   };
 
-  const submit = () => {
-    const prompt = text.trim();
+  const submit = (value = text) => {
+    const prompt = value.trim();
     if (!prompt || disabled) return;
     onSubmit(prompt);
     setText('');
     setCursor(null);
     draft.current = '';
+  };
+  useEffect(() => {
+    latest.current = { autoSend: !!voice?.autoSend, submit };
+  });
+
+  const toggleVoice = async () => {
+    if (!voice) return;
+    if (voiceState === 'listening' && dictation.current) {
+      dictation.current.stop();
+      return;
+    }
+    if (voiceState !== 'idle') {
+      // Starting or transcribing: the only useful thing a click can mean is "never mind".
+      attempt.current += 1;
+      dictation.current?.cancel();
+      dictation.current = null;
+      setVoiceState('idle');
+      return;
+    }
+    const mine = (attempt.current += 1);
+    setVoiceError(null);
+    setVoiceState('starting');
+    // Speech is added after whatever is already typed.
+    const base = text && !/\s$/.test(text) ? `${text} ` : text;
+    setCursor(null);
+    try {
+      const started = await startDictation(voice.profile, {
+        onText: (spoken) => setText(base + spoken),
+        onProcessing: () => setVoiceState('processing'),
+        onDone: (spoken) => {
+          dictation.current = null;
+          setVoiceState('idle');
+          const full = base + spoken;
+          if (spoken && latest.current.autoSend) {
+            latest.current.submit(full);
+          } else {
+            setText(full);
+            caretToEnd.current = true;
+            input.current?.focus();
+          }
+        },
+        onError: (message) => {
+          dictation.current = null;
+          setVoiceState('idle');
+          setVoiceError(message);
+        },
+      });
+      if (attempt.current !== mine) {
+        started.cancel();
+        return;
+      }
+      dictation.current = started;
+      // Only if nothing (a stop, a cancel) happened while the microphone was opening.
+      setVoiceSession((current) =>
+        current.key === voiceKey && current.state === 'starting'
+          ? { key: voiceKey, state: 'listening' }
+          : current,
+      );
+    } catch (cause) {
+      dictation.current = null;
+      setVoiceState('idle');
+      setVoiceError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   const browse = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -76,48 +180,80 @@ export function Composer({
     }
   };
 
+  const listening = voiceState === 'listening';
+  const voiceLabel =
+    voiceState === 'listening'
+      ? 'Stop dictation'
+      : voiceState === 'idle'
+        ? 'Speak'
+        : 'Cancel dictation';
+
   return (
-    <div className="composer">
-      <textarea
-        className="composer__input"
-        rows={1}
-        placeholder={placeholder}
-        aria-label="What should Arlo do?"
-        value={text}
-        disabled={disabled}
-        ref={input}
-        onChange={(event) => {
-          setText(event.target.value);
-          setCursor(null);
-        }}
-        onKeyDown={(event) => {
-          // Enter also confirms an IME candidate (e.g. Zhuyin); that must not send.
-          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-          browse(event);
-          if (event.defaultPrevented) return;
-          if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-      />
-      {onStop ? (
-        <button type="button" className="composer__send" onClick={onStop} title="Stop">
-          <StopIcon size={14} />
-          <span className="visually-hidden">Stop</span>
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="composer__send"
-          onClick={submit}
-          disabled={disabled || !text.trim()}
-          title="Send"
-        >
-          <SendIcon size={15} />
-          <span className="visually-hidden">Send</span>
-        </button>
-      )}
-    </div>
+    <>
+      {voiceError ? (
+        <p className="composer-note composer-note--error" role="alert">
+          {voiceError}
+        </p>
+      ) : null}
+      <div className="composer">
+        <textarea
+          className="composer__input"
+          rows={1}
+          placeholder={listening ? 'Listening…' : placeholder}
+          aria-label="What should Arlo do?"
+          value={text}
+          disabled={disabled}
+          ref={input}
+          onChange={(event) => {
+            setText(event.target.value);
+            setCursor(null);
+          }}
+          onKeyDown={(event) => {
+            // Enter also confirms an IME candidate (e.g. Zhuyin); that must not send.
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            browse(event);
+            if (event.defaultPrevented) return;
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
+          }}
+        />
+        {voice ? (
+          <button
+            type="button"
+            className={`composer__mic${listening ? ' composer__mic--live' : ''}`}
+            onClick={() => void toggleVoice()}
+            disabled={disabled}
+            aria-pressed={listening}
+            title={voiceLabel}
+          >
+            {voiceState === 'starting' || voiceState === 'processing' ? (
+              <span className="spinner spinner-sm" />
+            ) : (
+              <MicIcon size={15} />
+            )}
+            <span className="visually-hidden">{voiceLabel}</span>
+          </button>
+        ) : null}
+        {onStop ? (
+          <button type="button" className="composer__send" onClick={onStop} title="Stop">
+            <StopIcon size={14} />
+            <span className="visually-hidden">Stop</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="composer__send"
+            onClick={() => submit()}
+            disabled={disabled || !text.trim()}
+            title="Send"
+          >
+            <SendIcon size={15} />
+            <span className="visually-hidden">Send</span>
+          </button>
+        )}
+      </div>
+    </>
   );
 }

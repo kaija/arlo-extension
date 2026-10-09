@@ -100,6 +100,7 @@ export function App() {
             disabled={chat.session.running}
             onStop={chat.session.running ? chat.stop : undefined}
             history={prompts.history}
+            voice={chat.voice ?? undefined}
             onSubmit={(prompt) => void send(prompt)}
           />
         </Dock>

@@ -8,6 +8,15 @@ export const LLM_API_CONTRACTS = [
 ] as const;
 
 export type LlmApiContract = (typeof LLM_API_CONTRACTS)[number];
+
+/**
+ * How the microphone button turns speech into text:
+ * - `stt`: record, then send the clip to `/audio/transcriptions` when you stop.
+ * - `live`: stream audio to the Realtime transcription socket and fill the
+ *   composer as you speak.
+ */
+export const VOICE_MODES = ['off', 'stt', 'live'] as const;
+export type VoiceMode = (typeof VOICE_MODES)[number];
 export type ModelDiscoveryStatus = 'untested' | 'available' | 'unavailable' | 'failed';
 
 export interface ModelDiscoveryState {
@@ -26,6 +35,10 @@ export interface LlmProfile {
   rememberApiKey: boolean;
   modelIds: string[];
   discovery: ModelDiscoveryState;
+  /** Voice input for the chat composer; `off` hides the microphone. */
+  voiceMode: VoiceMode;
+  /** The speech-to-text or live transcription model; used when `voiceMode` is not `off`. */
+  voiceModel: string;
   /** Exact origins acknowledged by the user. Changed origins require consent again. */
   dataOriginAcknowledged?: string;
   insecureOriginAcknowledged?: string;
@@ -46,6 +59,8 @@ export interface Settings {
   theme: ThemePreference;
   /** Most model calls the agent may make while answering one message. */
   maxTurns: number;
+  /** Send a dictated message as soon as it is transcribed, instead of leaving it to edit. */
+  voiceAutoSend: boolean;
   onboardingCompleted: boolean;
 }
 
@@ -59,6 +74,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultLlmProfileId: null,
   theme: 'system',
   maxTurns: DEFAULT_MAX_TURNS,
+  voiceAutoSend: false,
   onboardingCompleted: false,
 };
 
@@ -91,6 +107,8 @@ export function createLlmProfile(apiContract: LlmApiContract): LlmProfile {
     rememberApiKey: true,
     modelIds: [],
     discovery: { status: 'untested' },
+    voiceMode: 'off',
+    voiceModel: '',
   };
 }
 
@@ -129,6 +147,49 @@ export function profileEndpoint(profile: Pick<LlmProfile, 'apiContract' | 'baseU
   return `${normalizeBaseUrl(profile.baseUrl)}/${path}`;
 }
 
+export function profileTranscriptionsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): string {
+  return `${normalizeBaseUrl(profile.baseUrl)}/audio/transcriptions`;
+}
+
+/** The Realtime transcription socket: the Base URL with its scheme swapped for ws(s). */
+export function profileRealtimeUrl(profile: Pick<LlmProfile, 'baseUrl'>): string {
+  const url = new URL(`${normalizeBaseUrl(profile.baseUrl)}/realtime`);
+  url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+  url.searchParams.set('intent', 'transcription');
+  return url.toString();
+}
+
+/**
+ * Anthropic has no speech endpoint, and Gemini's OpenAI-compatible surface does
+ * not expose `/audio/transcriptions`, so voice is offered on the OpenAI wire
+ * formats (and gateways that copy them, such as Groq) only.
+ */
+export function contractSupportsVoice(apiContract: LlmApiContract): boolean {
+  return apiContract === 'openai-responses' || apiContract === 'openai-chat-completions';
+}
+
+/** The profile a microphone button can be shown for. */
+export function voiceEnabled(
+  profile: Pick<LlmProfile, 'apiContract' | 'voiceMode' | 'voiceModel'>,
+): boolean {
+  return (
+    contractSupportsVoice(profile.apiContract) &&
+    profile.voiceMode !== 'off' &&
+    !!profile.voiceModel.trim()
+  );
+}
+
+export function voiceModeLabel(mode: VoiceMode): string {
+  switch (mode) {
+    case 'off':
+      return 'Off';
+    case 'stt':
+      return 'Speech to text (transcribe after you stop)';
+    case 'live':
+      return 'Live stream (transcribe as you speak)';
+  }
+}
+
 export function profileModelsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): string {
   return `${normalizeBaseUrl(profile.baseUrl)}/models`;
 }
@@ -137,6 +198,9 @@ export function validateLlmProfile(profile: LlmProfile): string[] {
   const errors: string[] = [];
   if (!profile.name.trim()) errors.push('Profile name is required.');
   if (!profile.model.trim()) errors.push('Model is required.');
+  if (profile.voiceMode !== 'off' && !profile.voiceModel.trim()) {
+    errors.push('Choose a voice model, or turn voice input off.');
+  }
   try {
     const parsed = new URL(normalizeBaseUrl(profile.baseUrl));
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -216,6 +280,10 @@ function normalizeProfile(value: unknown): LlmProfile | null {
       ? candidate.modelIds.filter((model): model is string => typeof model === 'string')
       : [],
     discovery: normalizeDiscovery(candidate.discovery),
+    voiceMode: VOICE_MODES.includes(candidate.voiceMode as VoiceMode)
+      ? (candidate.voiceMode as VoiceMode)
+      : 'off',
+    voiceModel: typeof candidate.voiceModel === 'string' ? candidate.voiceModel : '',
     ...(typeof candidate.dataOriginAcknowledged === 'string'
       ? { dataOriginAcknowledged: candidate.dataOriginAcknowledged }
       : {}),
@@ -247,6 +315,7 @@ function normalizeSettings(value: unknown): Settings {
     defaultLlmProfileId,
     theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
     maxTurns: normalizeMaxTurns(candidate.maxTurns),
+    voiceAutoSend: candidate.voiceAutoSend === true,
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'
         ? candidate.onboardingCompleted

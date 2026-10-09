@@ -10,7 +10,7 @@ import {
   type Settings,
 } from '../shared/settings';
 import { THEME_PREFERENCES, themeLabel } from '../shared/theme';
-import { Field } from './controls';
+import { Alert, Field, Switch } from './controls';
 import { LlmProfiles } from './LlmProfiles';
 
 export function Options() {
@@ -27,6 +27,29 @@ export function Options() {
       setLoaded(true);
     });
   }, []);
+
+  const [mic, setMic] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
+
+  /**
+   * The side panel often cannot show Chrome's microphone prompt, but this page
+   * can, and the answer is stored for the whole extension.
+   */
+  const allowMicrophone = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      for (const track of stream.getTracks()) track.stop();
+      setMic({ tone: 'success', text: 'Microphone allowed. The panel can now listen.' });
+    } catch (cause) {
+      const name = cause instanceof DOMException ? cause.name : '';
+      setMic({
+        tone: 'warning',
+        text:
+          name === 'NotFoundError'
+            ? 'No microphone was found.'
+            : 'Chrome did not allow the microphone. Check the site settings for this extension and try again.',
+      });
+    }
+  };
 
   const update = async (patch: Partial<Settings>) => {
     const next = await saveSettings(patch);
@@ -121,6 +144,36 @@ export function Options() {
               }}
             />
           </Field>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">Voice input</h2>
+              <p className="card-sub">
+                Turn it on per profile under AI connections by choosing a speech-to-text or live
+                transcription model. Then the chat box gets a microphone button.
+              </p>
+            </div>
+          </div>
+
+          <div className="form-stack">
+            <Switch
+              checked={settings.voiceAutoSend}
+              label="Send right after I stop speaking"
+              onChange={(voiceAutoSend) => void update({ voiceAutoSend })}
+            />
+            <p className="field-hint">
+              Off by default: the transcript lands in the chat box so you can check it before Arlo
+              acts on it.
+            </p>
+            <div className="row">
+              <button type="button" className="btn btn-sm" onClick={() => void allowMicrophone()}>
+                Allow microphone
+              </button>
+            </div>
+            {mic ? <Alert tone={mic.tone}>{mic.text}</Alert> : null}
+          </div>
         </section>
 
         {loaded ? <LlmProfiles settings={settings} onUpdate={update} /> : null}

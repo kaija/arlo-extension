@@ -4,7 +4,9 @@ import { CopyIcon, PlusIcon, TrashIcon } from '../design-system/icons';
 import { sendToBackground, type LlmDiagnostic } from '../shared/messages';
 import {
   LLM_API_CONTRACTS,
+  VOICE_MODES,
   contractDefaultBaseUrl,
+  contractSupportsVoice,
   contractLabel,
   createLlmProfile,
   isRemoteHttpOrigin,
@@ -12,9 +14,11 @@ import {
   profileEndpoint,
   profileOrigin,
   validateLlmProfile,
+  voiceModeLabel,
   type LlmApiContract,
   type LlmProfile,
   type Settings,
+  type VoiceMode,
 } from '../shared/settings';
 import { Alert, Field, SelectWrap, Switch } from './controls';
 
@@ -46,6 +50,16 @@ const DISCOVERY_TONE: Record<LlmProfile['discovery']['status'], string> = {
   failed: 'badge-danger',
   untested: 'badge-neutral',
 };
+
+/** Offered for the voice model field; any ID the endpoint accepts can still be typed. */
+const VOICE_MODEL_HINTS = ['gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'whisper-1'];
+
+function voiceModelSuggestions(profile: LlmProfile): string[] {
+  const discovered = profile.modelIds.filter((id) =>
+    /transcribe|whisper|stt|speech|audio/i.test(id),
+  );
+  return [...new Set([...discovered, ...VOICE_MODEL_HINTS])];
+}
 
 function discoveryLabel(profile: LlmProfile): string {
   switch (profile.discovery.status) {
@@ -134,6 +148,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       model: '',
       modelIds: [],
       discovery: { status: 'untested' },
+      ...(contractSupportsVoice(apiContract) ? {} : { voiceMode: 'off' as const, voiceModel: '' }),
       dataOriginAcknowledged: undefined,
       insecureOriginAcknowledged: undefined,
     });
@@ -641,9 +656,67 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                 </Field>
               </div>
 
+              <Field
+                id="voice-mode"
+                label="Voice input"
+                hint={
+                  contractSupportsVoice(draft.apiContract)
+                    ? 'Adds a microphone button to the chat box so you can dictate a task. Audio goes to the same endpoint as the chat model.'
+                    : 'Voice input needs an OpenAI-style endpoint with speech-to-text. This API contract does not offer one.'
+                }
+              >
+                <SelectWrap>
+                  <select
+                    id="voice-mode"
+                    className="input select"
+                    value={draft.voiceMode}
+                    disabled={!contractSupportsVoice(draft.apiContract)}
+                    onChange={(event) =>
+                      setDraft({ ...draft, voiceMode: event.target.value as VoiceMode })
+                    }
+                  >
+                    {VOICE_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {voiceModeLabel(mode)}
+                      </option>
+                    ))}
+                  </select>
+                </SelectWrap>
+              </Field>
+
+              {draft.voiceMode !== 'off' && contractSupportsVoice(draft.apiContract) ? (
+                <Field
+                  id="voice-model"
+                  label="Voice model"
+                  hint={
+                    draft.voiceMode === 'live'
+                      ? 'A Realtime transcription model, e.g. gpt-4o-transcribe. Streams over a WebSocket to the Base URL.'
+                      : 'A model served at /audio/transcriptions, e.g. gpt-4o-mini-transcribe or whisper-1.'
+                  }
+                >
+                  <input
+                    id="voice-model"
+                    className="input"
+                    type="text"
+                    list="voice-model-options"
+                    spellCheck={false}
+                    value={draft.voiceModel}
+                    onChange={(event) => setDraft({ ...draft, voiceModel: event.target.value })}
+                  />
+                  <datalist id="voice-model-options">
+                    {voiceModelSuggestions(draft).map((model) => (
+                      <option value={model} key={model} />
+                    ))}
+                  </datalist>
+                </Field>
+              ) : null}
+
               <Alert tone="info" title="Data destination">
                 Task instructions and relevant page content go directly to{' '}
                 {safeOrigin(draft) ?? 'the configured origin'}.
+                {draft.voiceMode !== 'off' && contractSupportsVoice(draft.apiContract)
+                  ? ' Microphone audio goes there too.'
+                  : ''}
               </Alert>
 
               {notice ? <Alert tone="warning">{notice}</Alert> : null}

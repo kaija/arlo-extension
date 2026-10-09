@@ -11,6 +11,7 @@ import {
   onSettingsChanged,
   type LlmProfile,
   type LlmProfileSummary,
+  voiceEnabled,
 } from '../shared/settings';
 import { runLocalTurn, type AgentMessageUpdate, type LocalAgentHistory } from './local-agent';
 
@@ -31,6 +32,8 @@ export type ChatStatus =
 export interface Chat {
   session: ChatSession;
   profile: LlmProfileSummary | null;
+  /** Set when the default profile has voice input turned on and usable. */
+  voice: { profile: LlmProfile; autoSend: boolean } | null;
   status: ChatStatus;
   /** The origin the panel needs, shown on the access screen. */
   endpoint: string;
@@ -53,6 +56,7 @@ function message(role: ChatMessage['role'], text: string, extra: Partial<ChatMes
 export function useChat(): Chat {
   const [session, setSession] = useState<ChatSession>(emptySession);
   const [profile, setProfile] = useState<LlmProfileSummary | null>(null);
+  const [voice, setVoice] = useState<Chat['voice']>(null);
   // Keyed by the pattern it answered for, so a profile change cannot be read
   // as a grant that was made for the previous endpoint.
   const [access, setAccess] = useState<{ pattern: string; granted: boolean } | null>(null);
@@ -77,6 +81,9 @@ export function useChat(): Chat {
       maxTurns.current = settings.maxTurns;
       setEndpoint(next?.baseUrl ?? '');
       setProfile(getDefaultLlmProfileSummary(settings));
+      setVoice(
+        next && voiceEnabled(next) ? { profile: next, autoSend: settings.voiceAutoSend } : null,
+      );
     };
     void loadSettings().then(apply);
     const stop = onSettingsChanged(apply);
@@ -193,6 +200,7 @@ export function useChat(): Chat {
   return {
     session,
     profile,
+    voice,
     status,
     endpoint,
     configured: !!profile,
