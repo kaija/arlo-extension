@@ -44,6 +44,9 @@ export default tseslint.config(
       globals: {
         document: 'readonly',
         localStorage: 'readonly',
+        // The PCM capture worklet runs in the audio rendering scope.
+        AudioWorkletProcessor: 'readonly',
+        registerProcessor: 'readonly',
       },
     },
   },

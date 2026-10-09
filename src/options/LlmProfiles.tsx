@@ -5,18 +5,21 @@ import { sendToBackground, type LlmDiagnostic } from '../shared/messages';
 import {
   LLM_API_CONTRACTS,
   contractDefaultBaseUrl,
+  contractSupportsVoice,
   contractLabel,
   createLlmProfile,
   isRemoteHttpOrigin,
   normalizeBaseUrl,
   profileEndpoint,
   profileOrigin,
-  validateLlmProfile,
+  profileErrors,
+  voiceEnabled,
   type LlmApiContract,
   type LlmProfile,
   type Settings,
 } from '../shared/settings';
 import { Alert, Field, SelectWrap, Switch } from './controls';
+import { useOptionsText, type OptionsText } from './text';
 
 interface LlmProfilesProps {
   settings: Settings;
@@ -47,20 +50,32 @@ const DISCOVERY_TONE: Record<LlmProfile['discovery']['status'], string> = {
   untested: 'badge-neutral',
 };
 
-function discoveryLabel(profile: LlmProfile): string {
-  switch (profile.discovery.status) {
-    case 'available':
-      return 'Models loaded';
-    case 'unavailable':
-      return 'Model list unavailable';
-    case 'failed':
-      return 'Check failed';
-    case 'untested':
-      return 'Untested';
+/** Offered for the voice model field; any ID the endpoint accepts can still be typed. */
+const OPENAI_VOICE_HINTS = [
+  'gpt-live-transcribe',
+  'gpt-4o-transcribe',
+  'gpt-4o-mini-transcribe',
+  'whisper-1',
+];
+const GEMINI_VOICE_HINTS = ['gemini-3.5-transcribe-live'];
+
+function voiceModelSuggestions(profile: LlmProfile): string[] {
+  if (profile.apiContract === 'gemini') {
+    const discovered = profile.modelIds.filter((id) => /live|native-audio/i.test(id));
+    return [...new Set([...GEMINI_VOICE_HINTS, ...discovered])];
   }
+  const discovered = profile.modelIds.filter((id) =>
+    /transcribe|whisper|stt|speech|audio/i.test(id),
+  );
+  return [...new Set([...discovered, ...OPENAI_VOICE_HINTS])];
+}
+
+function voiceModelHint(profile: LlmProfile, t: OptionsText): string {
+  return profile.apiContract === 'gemini' ? t.voiceModelHintGemini : t.voiceModelHintOpenAI;
 }
 
 export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
+  const t = useOptionsText();
   const [selectedId, setSelectedId] = useState<string | null>(
     settings.defaultLlmProfileId ?? settings.llmProfiles[0]?.id ?? null,
   );
@@ -83,7 +98,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     [draft, original],
   );
 
-  const discardConfirmed = () => !dirty || window.confirm('Discard your unsaved profile changes?');
+  const discardConfirmed = () => !dirty || window.confirm(t.confirmDiscard);
 
   const openProfile = (profile: LlmProfile) => {
     if (!discardConfirmed()) return;
@@ -118,12 +133,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
 
   const changeContract = (apiContract: LlmApiContract) => {
     if (!draft || draft.apiContract === apiContract) return;
-    if (
-      original &&
-      !window.confirm(
-        'Change this API contract? Arlo will reset the Base URL, model list, and connection status while retaining the API key.',
-      )
-    ) {
+    if (original && !window.confirm(t.confirmChangeContract)) {
       return;
     }
     const baseUrl = contractDefaultBaseUrl(apiContract);
@@ -134,12 +144,13 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       model: '',
       modelIds: [],
       discovery: { status: 'untested' },
+      ...(contractSupportsVoice(apiContract) ? {} : { voiceModel: '' }),
       dataOriginAcknowledged: undefined,
       insecureOriginAcknowledged: undefined,
     });
     // A contract transition is the deliberate exception to origin-bound key clearing.
     setKeyOrigin(new URL(baseUrl).origin);
-    setNotice(draft.apiKey ? 'The retained key will be sent using the new API contract.' : null);
+    setNotice(draft.apiKey ? t.keyKeptForContract : null);
     setDiagnostic(null);
   };
 
@@ -168,25 +179,20 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
         : {}),
     });
     setKeyOrigin(origin);
-    if (changed)
-      setNotice('The stored API key was cleared because the destination origin changed.');
+    if (changed) setNotice(t.keyClearedOriginChanged);
     setDiagnostic(null);
   };
 
   const acknowledgeInsecureOrigin = (profile: LlmProfile, origin: string): LlmProfile | null => {
     if (!isRemoteHttpOrigin(origin) || profile.insecureOriginAcknowledged === origin)
       return profile;
-    const approved = window.confirm(
-      `This endpoint uses unencrypted HTTP:\n\n${origin}\n\nAPI keys and page content may be readable in transit. Save it anyway?`,
-    );
+    const approved = window.confirm(t.confirmInsecure(origin));
     return approved ? { ...profile, insecureOriginAcknowledged: origin } : null;
   };
 
   const acknowledgeDataOrigin = (profile: LlmProfile, origin: string): LlmProfile | null => {
     if (profile.dataOriginAcknowledged === origin) return profile;
-    const approved = window.confirm(
-      `Allow Arlo to send task instructions and relevant page content directly to:\n\n${origin}?`,
-    );
+    const approved = window.confirm(t.confirmDataOrigin(origin));
     return approved ? { ...profile, dataOriginAcknowledged: origin } : null;
   };
 
@@ -199,13 +205,13 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       model: draft.model.trim(),
       modelIds: [...new Set([draft.model.trim(), ...draft.modelIds].filter(Boolean))],
     };
-    const errors = validateLlmProfile(normalized);
+    const errors = profileErrors(normalized).map((code) => t.profileError[code]);
     const duplicateName = settings.llmProfiles.some(
       (profile) =>
         profile.id !== normalized.id &&
         profile.name.trim().toLowerCase() === normalized.name.toLowerCase(),
     );
-    if (duplicateName) errors.push('Profile names must be unique.');
+    if (duplicateName) errors.push(t.duplicateName);
     if (errors.length) {
       setNotice(errors.join(' '));
       return;
@@ -231,7 +237,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       setDraft(cloneProfile(saved));
       setOriginal(cloneProfile(saved));
       setKeyOrigin(safeOrigin(saved));
-      setNotice('Profile saved.');
+      setNotice(t.profileSaved);
     } finally {
       setBusy(false);
     }
@@ -252,9 +258,9 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       granted = await chrome.permissions.request({ origins: [originPattern] });
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
-      return `Chrome would not request access to ${originPattern}: ${reason}`;
+      return t.chromeWouldNotRequest(originPattern, reason);
     }
-    return granted ? null : 'Permission to contact this endpoint was not granted.';
+    return granted ? null : t.permissionNotGranted;
   };
 
   const refreshModels = async () => {
@@ -262,7 +268,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     try {
       new URL(normalizeBaseUrl(draft.baseUrl));
     } catch {
-      setNotice('Enter a valid Base URL before refreshing models.');
+      setNotice(t.needBaseUrlToRefresh);
       return;
     }
     setBusy(true);
@@ -292,7 +298,15 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
         },
       });
       setDiagnostic(result.diagnostic ?? null);
-      setNotice(result.message);
+      // The service worker's wording is English; say the outcomes it knows in
+      // the chosen language, and pass a provider's own error text through.
+      setNotice(
+        result.status === 'available'
+          ? t.modelsLoaded(result.models.length)
+          : result.status === 'unavailable'
+            ? t.modelListUnavailable
+            : result.message,
+      );
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -302,7 +316,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
 
   const makeDefault = async () => {
     if (!draft || !original || dirty) {
-      setNotice('Save this profile before making it the default.');
+      setNotice(t.saveBeforeDefault);
       return;
     }
     const origin = profileOrigin(draft);
@@ -317,7 +331,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       const saved = next.llmProfiles.find((profile) => profile.id === ready.id) ?? ready;
       setDraft(cloneProfile(saved));
       setOriginal(cloneProfile(saved));
-      setNotice(`${saved.name} is now the default.`);
+      setNotice(t.nowDefault(saved.name));
     } finally {
       setBusy(false);
     }
@@ -328,7 +342,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     const copy: LlmProfile = {
       ...cloneProfile(original),
       id: `profile_${crypto.randomUUID().slice(0, 8)}`,
-      name: `${original.name} Copy`,
+      name: `${original.name} ${t.copySuffix}`,
       apiKey: '',
       discovery: { status: 'untested' },
       dataOriginAcknowledged: undefined,
@@ -338,15 +352,13 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     setDraft(copy);
     setOriginal(null);
     setKeyOrigin(safeOrigin(copy));
-    setNotice('Enter an API key if this endpoint requires one, then save the copy.');
+    setNotice(t.copyNotice);
     setDiagnostic(null);
   };
 
   const beginDelete = () => {
     if (!draft || !original || dirty) {
-      setNotice(
-        original ? 'Discard or save your changes before deleting.' : 'Cancel this draft instead.',
-      );
+      setNotice(original ? t.saveBeforeDelete : t.cancelDraftInstead);
       return;
     }
     const alternatives = settings.llmProfiles.filter((profile) => profile.id !== draft.id);
@@ -382,9 +394,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
       setOriginal(replacement ? cloneProfile(replacement) : null);
       setKeyOrigin(replacement ? safeOrigin(replacement) : null);
       setChoosingContract(!replacement);
-      setNotice(
-        replacement ? 'Profile deleted.' : 'Profile deleted. Tasks are blocked until you add one.',
-      );
+      setNotice(replacement ? t.profileDeleted : t.profileDeletedNone);
     } finally {
       setBusy(false);
     }
@@ -395,7 +405,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     try {
       endpointPreview = profileEndpoint(draft);
     } catch {
-      endpointPreview = 'Enter a valid Base URL to preview the endpoint.';
+      endpointPreview = t.endpointInvalid;
     }
   }
 
@@ -405,22 +415,19 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
     <section className="card">
       <div className="card-header">
         <div>
-          <h2 className="card-title">AI connections</h2>
-          <p className="card-sub">
-            Arlo sends each task directly to the default profile. Profiles never switch
-            automatically.
-          </p>
+          <h2 className="card-title">{t.connectionsTitle}</h2>
+          <p className="card-sub">{t.connectionsSub}</p>
         </div>
         <button type="button" className="btn btn-sm btn-icon" onClick={beginCreate}>
           <PlusIcon size={15} />
-          Add profile
+          {t.addProfile}
         </button>
       </div>
 
       <div className="profiles">
-        <nav className="profile-list" aria-label="AI profiles">
+        <nav className="profile-list" aria-label={t.profilesNav}>
           {settings.llmProfiles.length === 0 ? (
-            <p className="empty-state">No profiles yet</p>
+            <p className="empty-state">{t.noProfiles}</p>
           ) : (
             settings.llmProfiles.map((profile) => (
               <button
@@ -433,11 +440,11 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                 <span className="profile-row__top">
                   <span className="profile-row__name">{profile.name}</span>
                   {profile.id === settings.defaultLlmProfileId ? (
-                    <span className="badge">Default</span>
+                    <span className="badge">{t.defaultBadge}</span>
                   ) : null}
                 </span>
                 <span className="profile-row__meta">{contractLabel(profile.apiContract)}</span>
-                <span className="profile-row__meta">{profile.model || 'No model selected'}</span>
+                <span className="profile-row__meta">{profile.model || t.noModelSelected}</span>
               </button>
             ))
           )}
@@ -447,8 +454,8 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
           {choosingContract ? (
             <>
               <div>
-                <h3 className="card-title">Choose an API contract</h3>
-                <p className="card-sub">The request and authentication format stays explicit.</p>
+                <h3 className="card-title">{t.chooseContractTitle}</h3>
+                <p className="card-sub">{t.chooseContractSub}</p>
               </div>
               <div className="form-stack-sm">
                 {LLM_API_CONTRACTS.map((contract) => (
@@ -459,13 +466,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     onClick={() => chooseContract(contract)}
                   >
                     <strong>{contractLabel(contract)}</strong>
-                    <span>
-                      {contract === 'anthropic-messages'
-                        ? 'Native Claude Messages API'
-                        : contract === 'openai-responses'
-                          ? 'OpenAI Responses API and compatible gateways'
-                          : 'OpenAI Chat Completions and compatible gateways'}
-                    </span>
+                    <span>{t.contractDescription[contract]}</span>
                   </button>
                 ))}
               </div>
@@ -474,21 +475,21 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
             <>
               <div className="editor-head">
                 <div className="form-stack-sm">
-                  <h3>{original ? draft.name || 'Untitled profile' : 'New profile'}</h3>
+                  <h3>{original ? draft.name || t.untitledProfile : t.newProfile}</h3>
                   <div className="row">
                     <span className={`badge ${DISCOVERY_TONE[draft.discovery.status]}`}>
-                      {discoveryLabel(draft)}
+                      {t.discovery[draft.discovery.status]}
                     </span>
                     {draft.id === settings.defaultLlmProfileId ? (
-                      <span className="badge">Default</span>
+                      <span className="badge">{t.defaultBadge}</span>
                     ) : null}
                   </div>
                 </div>
-                {dirty ? <span className="badge badge-warning">Unsaved changes</span> : null}
+                {dirty ? <span className="badge badge-warning">{t.unsaved}</span> : null}
               </div>
 
               <div className="form-stack">
-                <Field id="profile-name" label="Profile name">
+                <Field id="profile-name" label={t.profileName}>
                   <input
                     id="profile-name"
                     className="input"
@@ -498,7 +499,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                   />
                 </Field>
 
-                <Field id="api-contract" label="API contract">
+                <Field id="api-contract" label={t.apiContract}>
                   <SelectWrap>
                     <select
                       id="api-contract"
@@ -516,14 +517,12 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                 </Field>
 
                 {draft.apiContract === 'anthropic-messages' ? (
-                  <Alert tone="warning" title="Arlo cannot drive this contract yet">
-                    The panel runs its agent on the OpenAI wire formats. An Anthropic profile can
-                    still list its models here, but a chat turn will stop with an error. Use an
-                    OpenAI Responses or Chat Completions endpoint to run Arlo.
+                  <Alert tone="warning" title={t.anthropicTitle}>
+                    {t.anthropicBody}
                   </Alert>
                 ) : null}
 
-                <Field id="base-url" label="Base URL">
+                <Field id="base-url" label={t.baseUrl}>
                   <input
                     id="base-url"
                     className="input"
@@ -540,15 +539,11 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                     }
                     onBlur={normalizeAndProtectOrigin}
                   />
-                  <p className="field-hint">Requests go to</p>
+                  <p className="field-hint">{t.requestsGoTo}</p>
                   <span className="pill pill-endpoint">{endpointPreview}</span>
                 </Field>
 
-                <Field
-                  id="api-key"
-                  label="API key"
-                  hint="Turn remembering off to keep the key only until Chrome closes. Arlo does not encrypt remembered keys."
-                >
+                <Field id="api-key" label={t.apiKey} hint={t.apiKeyHint}>
                   <div className="row">
                     <input
                       id="api-key"
@@ -573,7 +568,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setKeyVisible((visible) => !visible)}
                     >
-                      {keyVisible ? 'Hide' : 'Reveal'}
+                      {keyVisible ? t.hide : t.reveal}
                     </button>
                     <button
                       type="button"
@@ -581,21 +576,17 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setDraft({ ...draft, apiKey: '' })}
                     >
-                      Clear
+                      {t.clear}
                     </button>
                   </div>
                   <Switch
                     checked={draft.rememberApiKey}
-                    label="Remember key in this Chrome profile"
+                    label={t.rememberKey}
                     onChange={(rememberApiKey) => setDraft({ ...draft, rememberApiKey })}
                   />
                 </Field>
 
-                <Field
-                  id="model"
-                  label="Model"
-                  hint="Pick a discovered model or type any model ID. Refresh only checks the model-list endpoint; it does not run a generation."
-                >
+                <Field id="model" label={t.model} hint={t.modelHint}>
                   <div className="row">
                     <input
                       id="model"
@@ -612,21 +603,19 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       onClick={() => void refreshModels()}
                     >
                       {busy ? <span className="spinner spinner-sm" /> : null}
-                      {busy ? 'Checking…' : 'Refresh models'}
+                      {busy ? t.checking : t.refreshModels}
                     </button>
                   </div>
                   {draft.modelIds.length > 0 ? (
                     <SelectWrap>
                       <select
                         className="input select input-sm"
-                        aria-label="Discovered models"
+                        aria-label={t.discoveredModels}
                         value={draft.modelIds.includes(draft.model) ? draft.model : ''}
                         onChange={(event) => setDraft({ ...draft, model: event.target.value })}
                       >
                         <option value="" disabled>
-                          {`Choose from ${draft.modelIds.length} discovered ${
-                            draft.modelIds.length === 1 ? 'model' : 'models'
-                          }…`}
+                          {t.chooseDiscovered(draft.modelIds.length)}
                         </option>
                         {draft.modelIds.map((model) => (
                           <option value={model} key={model}>
@@ -639,36 +628,71 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                 </Field>
               </div>
 
-              <Alert tone="info" title="Data destination">
-                Task instructions and relevant page content go directly to{' '}
-                {safeOrigin(draft) ?? 'the configured origin'}.
+              {contractSupportsVoice(draft.apiContract) ? (
+                <Field id="voice-model" label={t.voiceModel} hint={voiceModelHint(draft, t)}>
+                  <input
+                    id="voice-model"
+                    className="input"
+                    type="text"
+                    spellCheck={false}
+                    placeholder={t.voiceModelOptional}
+                    value={draft.voiceModel}
+                    onChange={(event) => setDraft({ ...draft, voiceModel: event.target.value })}
+                  />
+                  <SelectWrap>
+                    <select
+                      className="input select input-sm"
+                      aria-label={t.suggestedVoiceModels}
+                      value={
+                        voiceModelSuggestions(draft).includes(draft.voiceModel)
+                          ? draft.voiceModel
+                          : ''
+                      }
+                      onChange={(event) => setDraft({ ...draft, voiceModel: event.target.value })}
+                    >
+                      <option value="" disabled>
+                        {t.chooseSuggested(voiceModelSuggestions(draft).length)}
+                      </option>
+                      {voiceModelSuggestions(draft).map((model) => (
+                        <option value={model} key={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </SelectWrap>
+                </Field>
+              ) : null}
+
+              <Alert tone="info" title={t.dataDestination}>
+                {t.dataDestinationBody(safeOrigin(draft))}
+                {voiceEnabled(draft) ? t.audioToo : ''}
               </Alert>
 
               {notice ? <Alert tone="warning">{notice}</Alert> : null}
 
               {diagnostic ? (
                 <details className="diagnostic">
-                  <summary>Technical details</summary>
+                  <summary>{t.technicalDetails}</summary>
                   <dl>
-                    <dt>Endpoint</dt>
+                    <dt>{t.endpoint}</dt>
                     <dd>{diagnostic.endpoint}</dd>
-                    <dt>API contract</dt>
+                    <dt>{t.apiContract}</dt>
                     <dd>{contractLabel(diagnostic.apiContract)}</dd>
                     {diagnostic.status ? (
                       <>
-                        <dt>HTTP status</dt>
+                        <dt>{t.httpStatus}</dt>
                         <dd>{diagnostic.status}</dd>
                       </>
                     ) : null}
                     {diagnostic.requestId ? (
                       <>
-                        <dt>Request ID</dt>
+                        <dt>{t.requestId}</dt>
                         <dd>{diagnostic.requestId}</dd>
                       </>
                     ) : null}
                     {diagnostic.responseExcerpt ? (
                       <>
-                        <dt>Response</dt>
+                        <dt>{t.response}</dt>
                         <dd>{diagnostic.responseExcerpt}</dd>
                       </>
                     ) : null}
@@ -677,10 +701,10 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
               ) : null}
 
               {deleteId ? (
-                <Alert tone="danger" title={`Delete ${draft.name}?`}>
+                <Alert tone="danger" title={t.deleteTitle(draft.name)}>
                   <div className="form-stack">
                     {settings.defaultLlmProfileId === deleteId && alternatives.length > 0 ? (
-                      <Field id="replacement-profile" label="New default profile">
+                      <Field id="replacement-profile" label={t.newDefaultProfile}>
                         <SelectWrap>
                           <select
                             id="replacement-profile"
@@ -697,7 +721,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                         </SelectWrap>
                       </Field>
                     ) : alternatives.length === 0 ? (
-                      <p>Task submission will be blocked until you create another profile.</p>
+                      <p>{t.blockedUntilCreated}</p>
                     ) : null}
                     <div className="row">
                       <button
@@ -707,14 +731,14 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                         onClick={() => void confirmDelete()}
                       >
                         <TrashIcon size={16} />
-                        Delete profile
+                        {t.deleteProfile}
                       </button>
                       <button
                         type="button"
                         className="btn btn-secondary"
                         onClick={() => setDeleteId(null)}
                       >
-                        Cancel
+                        {t.cancel}
                       </button>
                     </div>
                   </div>
@@ -728,7 +752,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       disabled={!dirty || busy}
                       onClick={() => void saveProfile()}
                     >
-                      Save profile
+                      {t.saveProfile}
                     </button>
                     <button
                       type="button"
@@ -739,7 +763,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                         else beginCreate();
                       }}
                     >
-                      Cancel
+                      {t.cancel}
                     </button>
                   </div>
                   <div className="row editor-footer__actions">
@@ -750,7 +774,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                         disabled={!original || busy}
                         onClick={() => void makeDefault()}
                       >
-                        Make default
+                        {t.makeDefault}
                       </button>
                     ) : null}
                     <button
@@ -760,7 +784,7 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       onClick={duplicateProfile}
                     >
                       <CopyIcon size={15} />
-                      Duplicate
+                      {t.duplicate}
                     </button>
                     <button
                       type="button"
@@ -769,14 +793,14 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                       onClick={beginDelete}
                     >
                       <TrashIcon size={15} />
-                      Delete
+                      {t.delete}
                     </button>
                   </div>
                 </div>
               )}
             </>
           ) : (
-            <p className="empty-state">Choose or add a profile.</p>
+            <p className="empty-state">{t.chooseOrAdd}</p>
           )}
         </div>
       </div>

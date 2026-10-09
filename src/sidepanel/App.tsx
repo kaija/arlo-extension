@@ -8,12 +8,28 @@ import { IdleScreen } from './components/IdleScreen';
 import { MessageList } from './components/MessageList';
 import { PanelHeader } from './components/PanelHeader';
 import { ModelAccessScreen, ModelSetupScreen } from './components/Screens';
+import { LanguageProvider, useText } from './language';
 import { useActivePage } from './useActivePage';
 import { useChat } from './useChat';
+import { usePromptHistory } from './usePromptHistory';
 
 export function App() {
+  return (
+    <LanguageProvider>
+      <Panel />
+    </LanguageProvider>
+  );
+}
+
+function Panel() {
+  const text = useText();
   const chat = useChat();
   const page = useActivePage();
+  const prompts = usePromptHistory();
+  const send = (prompt: string) => {
+    prompts.record(prompt);
+    return chat.send(prompt);
+  };
   const thread = useRef<HTMLDivElement>(null);
   // Assume granted until Chrome says otherwise, so the offer never flashes.
   const [pageAccess, setPageAccess] = useState(true);
@@ -43,8 +59,7 @@ export function App() {
       );
     }
     if (chat.status === 'checking') return null;
-    if (count === 0)
-      return <IdleScreen busy={chat.session.running} page={page} onSubmit={chat.send} />;
+    if (count === 0) return <IdleScreen busy={chat.session.running} page={page} onSubmit={send} />;
     return (
       <div className="thread" ref={thread}>
         <MessageList messages={chat.session.messages} />
@@ -68,10 +83,10 @@ export function App() {
             type="button"
             className="panel-alert__dismiss"
             onClick={chat.dismissError}
-            title="Dismiss"
+            title={text.dismiss}
           >
             <CloseIcon />
-            <span className="visually-hidden">Dismiss</span>
+            <span className="visually-hidden">{text.dismiss}</span>
           </button>
         </div>
       ) : null}
@@ -84,17 +99,19 @@ export function App() {
             <button
               type="button"
               className="panel-btn panel-btn--sm panel-btn--secondary panel-btn--block"
-              title="Otherwise Chrome only lets Arlo read the page for one toolbar click, until you navigate"
+              title={text.pageAccessTitle}
               onClick={() => void requestPageAccess().then(setPageAccess)}
             >
-              Let Arlo read pages without a toolbar click
+              {text.pageAccessButton}
             </button>
           )}
           <Composer
-            placeholder={chat.session.running ? 'Arlo is working…' : 'Ask Arlo to build something…'}
+            placeholder={chat.session.running ? text.placeholderWorking : text.placeholder}
             disabled={chat.session.running}
             onStop={chat.session.running ? chat.stop : undefined}
-            onSubmit={(prompt) => void chat.send(prompt)}
+            history={prompts.history}
+            voice={chat.voice ?? undefined}
+            onSubmit={(prompt) => void send(prompt)}
           />
         </Dock>
       ) : null}

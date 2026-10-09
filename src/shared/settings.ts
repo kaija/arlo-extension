@@ -1,12 +1,15 @@
+import { DEFAULT_LANGUAGE, isLanguage, type Language } from './language';
 import { isThemePreference, type ThemePreference } from './theme';
 
 export const LLM_API_CONTRACTS = [
   'anthropic-messages',
   'openai-responses',
   'openai-chat-completions',
+  'gemini',
 ] as const;
 
 export type LlmApiContract = (typeof LLM_API_CONTRACTS)[number];
+
 export type ModelDiscoveryStatus = 'untested' | 'available' | 'unavailable' | 'failed';
 
 export interface ModelDiscoveryState {
@@ -25,6 +28,8 @@ export interface LlmProfile {
   rememberApiKey: boolean;
   modelIds: string[];
   discovery: ModelDiscoveryState;
+  /** A live transcription model. Empty turns voice input off; set, it adds a microphone to the chat box. */
+  voiceModel: string;
   /** Exact origins acknowledged by the user. Changed origins require consent again. */
   dataOriginAcknowledged?: string;
   insecureOriginAcknowledged?: string;
@@ -43,8 +48,12 @@ export interface Settings {
   defaultLlmProfileId: string | null;
   /** Dark, light, or whatever the OS is set to. */
   theme: ThemePreference;
+  /** What the side panel says, and what the agent replies in unless you write in another language. */
+  language: Language;
   /** Most model calls the agent may make while answering one message. */
   maxTurns: number;
+  /** Send a dictated message as soon as it is transcribed, instead of leaving it to edit. */
+  voiceAutoSend: boolean;
   onboardingCompleted: boolean;
 }
 
@@ -57,7 +66,9 @@ export const DEFAULT_SETTINGS: Settings = {
   llmProfiles: [],
   defaultLlmProfileId: null,
   theme: 'system',
+  language: DEFAULT_LANGUAGE,
   maxTurns: DEFAULT_MAX_TURNS,
+  voiceAutoSend: false,
   onboardingCompleted: false,
 };
 
@@ -70,6 +81,11 @@ const CONTRACT_DEFAULTS: Record<LlmApiContract, { name: string; baseUrl: string 
   'openai-chat-completions': {
     name: 'OpenAI Chat Completions',
     baseUrl: 'https://api.openai.com/v1',
+  },
+  // Google's OpenAI-compatible surface; the native generateContent API is not used.
+  gemini: {
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
   },
 };
 
@@ -85,6 +101,7 @@ export function createLlmProfile(apiContract: LlmApiContract): LlmProfile {
     rememberApiKey: true,
     modelIds: [],
     discovery: { status: 'untested' },
+    voiceModel: '',
   };
 }
 
@@ -100,6 +117,8 @@ export function contractLabel(apiContract: LlmApiContract): string {
       return 'OpenAI Responses';
     case 'openai-chat-completions':
       return 'OpenAI Chat Completions';
+    case 'gemini':
+      return 'Google Gemini';
   }
 }
 
@@ -117,27 +136,75 @@ export function profileEndpoint(profile: Pick<LlmProfile, 'apiContract' | 'baseU
       ? 'messages'
       : profile.apiContract === 'openai-responses'
         ? 'responses'
-        : 'chat/completions';
+        : 'chat/completions'; // OpenAI Chat Completions and Gemini's compatible endpoint
   return `${normalizeBaseUrl(profile.baseUrl)}/${path}`;
+}
+
+/** The Realtime transcription socket: the Base URL with its scheme swapped for ws(s). */
+export function profileRealtimeUrl(profile: Pick<LlmProfile, 'baseUrl'>): string {
+  const url = new URL(`${normalizeBaseUrl(profile.baseUrl)}/realtime`);
+  url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+  url.searchParams.set('intent', 'transcription');
+  return url.toString();
+}
+
+/**
+ * Gemini's Live API socket. Its Base URL is the OpenAI-compatible
+ * `…/v1beta/openai`, which is the same host; the key is added by the caller.
+ */
+export function profileGeminiLiveUrl(profile: Pick<LlmProfile, 'baseUrl'>): string {
+  const url = new URL(normalizeBaseUrl(profile.baseUrl));
+  url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+  url.pathname = '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+  url.search = '';
+  return url.toString();
+}
+
+/**
+ * Anthropic has no speech endpoint, so voice is offered on the OpenAI wire
+ * formats (and gateways that copy them, such as Groq) and on Gemini, which
+ * transcribes through its own chat and Live endpoints.
+ */
+export function contractSupportsVoice(apiContract: LlmApiContract): boolean {
+  return apiContract !== 'anthropic-messages';
+}
+
+/** The profile a microphone button can be shown for. */
+export function voiceEnabled(profile: Pick<LlmProfile, 'apiContract' | 'voiceModel'>): boolean {
+  return contractSupportsVoice(profile.apiContract) && !!profile.voiceModel.trim();
 }
 
 export function profileModelsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): string {
   return `${normalizeBaseUrl(profile.baseUrl)}/models`;
 }
 
-export function validateLlmProfile(profile: LlmProfile): string[] {
-  const errors: string[] = [];
-  if (!profile.name.trim()) errors.push('Profile name is required.');
-  if (!profile.model.trim()) errors.push('Model is required.');
+export type ProfileError = 'name' | 'model' | 'baseUrlProtocol' | 'baseUrlInvalid';
+
+export function profileErrors(profile: LlmProfile): ProfileError[] {
+  const errors: ProfileError[] = [];
+  if (!profile.name.trim()) errors.push('name');
+  if (!profile.model.trim()) errors.push('model');
   try {
     const parsed = new URL(normalizeBaseUrl(profile.baseUrl));
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      errors.push('Base URL must use HTTP or HTTPS.');
+      errors.push('baseUrlProtocol');
     }
   } catch {
-    errors.push('Enter a valid Base URL.');
+    errors.push('baseUrlInvalid');
   }
   return errors;
+}
+
+const PROFILE_ERROR_TEXT: Record<ProfileError, string> = {
+  name: 'Profile name is required.',
+  model: 'Model is required.',
+  baseUrlProtocol: 'Base URL must use HTTP or HTTPS.',
+  baseUrlInvalid: 'Enter a valid Base URL.',
+};
+
+/** English messages; the Settings page maps the codes to the chosen language itself. */
+export function validateLlmProfile(profile: LlmProfile): string[] {
+  return profileErrors(profile).map((code) => PROFILE_ERROR_TEXT[code]);
 }
 
 export function isRemoteHttpOrigin(origin: string): boolean {
@@ -208,6 +275,13 @@ function normalizeProfile(value: unknown): LlmProfile | null {
       ? candidate.modelIds.filter((model): model is string => typeof model === 'string')
       : [],
     discovery: normalizeDiscovery(candidate.discovery),
+    // Profiles saved while a record-then-transcribe mode existed hold a model
+    // that cannot stream, so voice is switched off for them rather than broken.
+    voiceModel:
+      typeof candidate.voiceModel === 'string' &&
+      (candidate as { voiceMode?: unknown }).voiceMode !== 'stt'
+        ? candidate.voiceModel
+        : '',
     ...(typeof candidate.dataOriginAcknowledged === 'string'
       ? { dataOriginAcknowledged: candidate.dataOriginAcknowledged }
       : {}),
@@ -238,7 +312,9 @@ function normalizeSettings(value: unknown): Settings {
     llmProfiles,
     defaultLlmProfileId,
     theme: isThemePreference(candidate.theme) ? candidate.theme : DEFAULT_SETTINGS.theme,
+    language: isLanguage(candidate.language) ? candidate.language : DEFAULT_LANGUAGE,
     maxTurns: normalizeMaxTurns(candidate.maxTurns),
+    voiceAutoSend: candidate.voiceAutoSend === true,
     onboardingCompleted:
       typeof candidate.onboardingCompleted === 'boolean'
         ? candidate.onboardingCompleted

@@ -279,6 +279,66 @@ button {
   cursor: default;
 }
 
+/* Dictation: a quiet round button beside send, red and pulsing while it listens. */
+.composer__mic {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--text-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.composer__mic:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.composer__mic:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.composer__mic--live {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: #fff;
+  animation: composer-mic-pulse 1.4s ease-in-out infinite;
+}
+
+.composer__mic--live:hover:not(:disabled) {
+  color: #fff;
+}
+
+@keyframes composer-mic-pulse {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-danger) 25%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__mic--live {
+    animation: none;
+  }
+}
+
+.composer-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.composer-note--error {
+  color: var(--color-danger);
+}
+
 /*
  * The foot of the panel, in every state: the input, and the model that will act
  * on it. Anchoring it means the input never moves when a run starts.

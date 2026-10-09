@@ -102,7 +102,7 @@ async function requestJson(
   return body;
 }
 
-function modelIds(body: unknown): string[] {
+function modelIds(body: unknown, profile: LlmProfile): string[] {
   const record = asRecord(body);
   const candidates = Array.isArray(record?.data)
     ? record.data
@@ -119,7 +119,9 @@ function modelIds(body: unknown): string[] {
           const item = asRecord(value);
           return typeof item?.id === 'string' ? item.id : null;
         })
-        .filter((value): value is string => !!value),
+        .filter((value): value is string => !!value)
+        // Gemini lists "models/gemini-…" but its chat endpoint wants the bare id.
+        .map((id) => (profile.apiContract === 'gemini' ? id.replace(/^models\//, '') : id)),
     ),
   ].sort((a, b) => a.localeCompare(b));
 }
@@ -132,7 +134,7 @@ export async function listModels(profile: LlmProfile): Promise<ModelDiscoveryRes
       method: 'GET',
       headers: authHeaders(profile),
     });
-    const models = modelIds(body);
+    const models = modelIds(body, profile);
     return {
       status: 'available',
       models,

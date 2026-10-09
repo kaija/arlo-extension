@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { emptySession, type ChatMessage, type ChatSession } from '../core/chat';
+import { DEFAULT_LANGUAGE, type Language } from '../shared/language';
 import { newId } from '../shared/messages';
 import { hasHostAccess, originPattern, requestHostAccess } from '../shared/model-access';
 import {
@@ -11,6 +12,7 @@ import {
   onSettingsChanged,
   type LlmProfile,
   type LlmProfileSummary,
+  voiceEnabled,
 } from '../shared/settings';
 import { runLocalTurn, type AgentMessageUpdate, type LocalAgentHistory } from './local-agent';
 
@@ -31,6 +33,8 @@ export type ChatStatus =
 export interface Chat {
   session: ChatSession;
   profile: LlmProfileSummary | null;
+  /** Set when the default profile has voice input turned on and usable. */
+  voice: { profile: LlmProfile; autoSend: boolean } | null;
   status: ChatStatus;
   /** The origin the panel needs, shown on the access screen. */
   endpoint: string;
@@ -53,6 +57,7 @@ function message(role: ChatMessage['role'], text: string, extra: Partial<ChatMes
 export function useChat(): Chat {
   const [session, setSession] = useState<ChatSession>(emptySession);
   const [profile, setProfile] = useState<LlmProfileSummary | null>(null);
+  const [voice, setVoice] = useState<Chat['voice']>(null);
   // Keyed by the pattern it answered for, so a profile change cannot be read
   // as a grant that was made for the previous endpoint.
   const [access, setAccess] = useState<{ pattern: string; granted: boolean } | null>(null);
@@ -63,6 +68,7 @@ export function useChat(): Chat {
   const [endpoint, setEndpoint] = useState('');
   const full = useRef<LlmProfile | null>(null);
   const maxTurns = useRef(DEFAULT_MAX_TURNS);
+  const language = useRef<Language>(DEFAULT_LANGUAGE);
   // One conversation, carried across turns.
   const history = useRef<LocalAgentHistory>([]);
   const activeTurn = useRef<AbortController | null>(null);
@@ -75,8 +81,12 @@ export function useChat(): Chat {
       const next = getDefaultLlmProfile(settings);
       full.current = next;
       maxTurns.current = settings.maxTurns;
+      language.current = settings.language;
       setEndpoint(next?.baseUrl ?? '');
       setProfile(getDefaultLlmProfileSummary(settings));
+      setVoice(
+        next && voiceEnabled(next) ? { profile: next, autoSend: settings.voiceAutoSend } : null,
+      );
     };
     void loadSettings().then(apply);
     const stop = onSettingsChanged(apply);
@@ -170,6 +180,7 @@ export function useChat(): Chat {
           },
           maxTurns.current,
           controller.signal,
+          language.current,
         );
         history.current = outcome.history;
         replace({
@@ -193,6 +204,7 @@ export function useChat(): Chat {
   return {
     session,
     profile,
+    voice,
     status,
     endpoint,
     configured: !!profile,

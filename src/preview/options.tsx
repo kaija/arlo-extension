@@ -5,6 +5,8 @@
  * The stub is installed before the app is imported, which is why the import is
  * dynamic: a static import would be hoisted above it.
  */
+const language = new URLSearchParams(location.search).get('lang') ?? 'en';
+
 const store = new Map<string, unknown>([
   [
     'arlo:settings',
@@ -38,6 +40,7 @@ const store = new Map<string, unknown>([
         },
       ],
       defaultLlmProfileId: 'profile_anthropic',
+      language,
     },
   ],
 ]);
