@@ -1,4 +1,5 @@
 import type { LlmProfileSummary } from '../../shared/settings';
+import { useText } from '../language';
 
 /**
  * The foot of the panel: what you type into, and which model will act on it.
@@ -17,11 +18,12 @@ export function Dock({
 }
 
 function ModelChip({ profile }: { profile: LlmProfileSummary }) {
+  const text = useText();
   return (
     <button
       type="button"
       className="model-chip"
-      title={`Requests go directly to ${profile.origin}`}
+      title={text.requestsGoTo(profile.origin)}
       onClick={() => chrome.runtime.openOptionsPage()}
     >
       <span className="model-chip__name">
@@ -29,7 +31,7 @@ function ModelChip({ profile }: { profile: LlmProfileSummary }) {
         <span className="model-chip__model">{profile.model}</span>
       </span>
       <span className="model-chip__cta" aria-hidden="true">
-        AI settings →
+        {text.aiSettings}
       </span>
     </button>
   );

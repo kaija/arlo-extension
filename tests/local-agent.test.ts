@@ -136,6 +136,29 @@ describe('the in-panel agent turn', () => {
     expect(getModel).toHaveBeenCalledWith('test-model');
   });
 
+  it('runs a Gemini profile over chat completions with non-strict tool schemas', async () => {
+    run.mockResolvedValue(stream(['ok']));
+
+    await runLocalTurn(
+      profile({
+        apiContract: 'gemini',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      }),
+      7,
+      'hi',
+      [],
+      { onText: vi.fn(), onError: vi.fn() },
+      25,
+    );
+
+    expect(OpenAIProvider).toHaveBeenCalledWith(expect.objectContaining({ useResponses: false }));
+    const options = tool.mock.calls.map(
+      ([o]) => o as { strict: boolean; parameters: { required: string[] } },
+    );
+    expect(options.map((o) => o.strict)).toEqual([false, false]);
+    expect(options.map((o) => o.parameters.required)).toEqual([['level'], ['url']]);
+  });
+
   it('refuses a profile whose wire format the SDK cannot speak', async () => {
     await expect(
       runLocalTurn(
