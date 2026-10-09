@@ -2,16 +2,12 @@
  * Voice input for the composer: the microphone in, text out. The panel never
  * acts on speech by itself — it produces the same text a person would type.
  *
- * Two ways to get there, picked by the profile's voice mode:
- * - `stt` records a clip and posts it to `/audio/transcriptions` on stop.
- * - `live` streams PCM to the Realtime transcription socket, so words appear
- *   in the composer while you are still talking.
+ * Audio is streamed to a transcription socket, so words appear in the composer
+ * while you are still talking — the OpenAI Realtime transcription socket, or
+ * Gemini's Live API with input transcription turned on. A clip-then-transcribe
+ * mode was dropped: it showed nothing until you stopped, and was slower to use.
  */
-import {
-  profileRealtimeUrl,
-  profileTranscriptionsEndpoint,
-  type LlmProfile,
-} from '../shared/settings';
+import { profileGeminiLiveUrl, profileRealtimeUrl, type LlmProfile } from '../shared/settings';
 
 export interface DictationHandlers {
   /** Text so far for this dictation (replaces any earlier partial). */
@@ -32,6 +28,8 @@ export interface Dictation {
 
 /** How long a live session waits for its last transcript after the mic closes. */
 const LIVE_SETTLE_MS = 4000;
+/** How long Gemini Live gets to accept the setup message. */
+const LIVE_SETUP_MS = 8000;
 
 export const MIC_BLOCKED_MESSAGE =
   'Chrome has not allowed Arlo to use the microphone. Open Arlo settings and choose "Allow microphone" under Voice input.';
@@ -58,114 +56,42 @@ function release(stream: MediaStream) {
   for (const track of stream.getTracks()) track.stop();
 }
 
-function authHeaders(profile: LlmProfile): Record<string, string> {
-  return profile.apiKey ? { Authorization: `Bearer ${profile.apiKey}` } : {};
+/** What the Gemini Live API takes in. */
+const GEMINI_SAMPLE_RATE = 16000;
+
+interface PcmCapture {
+  close: () => void;
 }
 
-/** Pick a container the browser can write and transcription endpoints accept. */
-function recorderType(): { mimeType?: string; extension: string } {
-  for (const [mimeType, extension] of [
-    ['audio/webm;codecs=opus', 'webm'],
-    ['audio/webm', 'webm'],
-    ['audio/mp4', 'mp4'],
-  ] as const) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) {
-      return { mimeType, extension };
-    }
-  }
-  return { extension: 'webm' };
-}
-
-export async function transcribeClip(
-  profile: LlmProfile,
-  clip: Blob,
-  extension: string,
-  signal?: AbortSignal,
-): Promise<string> {
-  const form = new FormData();
-  form.append('file', clip, `speech.${extension}`);
-  form.append('model', profile.voiceModel.trim());
-  form.append('response_format', 'json');
-  let response: Response;
+/**
+ * Microphone to 16-bit PCM chunks at `sampleRate`, through the packaged
+ * worklet. The worklet is routed through a silent gain into the destination:
+ * Chrome only runs graph nodes that lead to an output, and its own output is
+ * silence, so nothing is played back.
+ */
+async function capturePcm(
+  stream: MediaStream,
+  sampleRate: number,
+  onChunk: (pcm: ArrayBuffer) => void,
+): Promise<PcmCapture> {
+  const context = new AudioContext({ sampleRate });
   try {
-    response = await fetch(profileTranscriptionsEndpoint(profile), {
-      method: 'POST',
-      headers: authHeaders(profile),
-      body: form,
-      signal,
-    });
+    await context.audioWorklet.addModule(chrome.runtime.getURL('pcm-worklet.js'));
+    const source = context.createMediaStreamSource(stream);
+    const node = new AudioWorkletNode(context, 'pcm-capture');
+    node.port.onmessage = (event: MessageEvent<ArrayBuffer>) => onChunk(event.data);
+    const mute = context.createGain();
+    mute.gain.value = 0;
+    source.connect(node);
+    node.connect(mute);
+    mute.connect(context.destination);
   } catch (cause) {
-    if (signal?.aborted) throw cause;
-    throw new Error('Could not reach the speech-to-text endpoint. Check the network connection.', {
+    void context.close().catch(() => undefined);
+    throw new Error(cause instanceof Error ? cause.message : 'Could not capture audio.', {
       cause,
     });
   }
-  const raw = await response.text();
-  let body: unknown = null;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    // Not JSON; the status line below is the best we have.
-  }
-  const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-  if (!response.ok) {
-    const error = record.error;
-    const detail =
-      error &&
-      typeof error === 'object' &&
-      typeof (error as { message?: unknown }).message === 'string'
-        ? (error as { message: string }).message
-        : `HTTP ${response.status}`;
-    throw new Error(`Speech-to-text failed: ${detail}`);
-  }
-  return typeof record.text === 'string' ? record.text.trim() : '';
-}
-
-/** Record, then transcribe once on stop. */
-async function startRecorded(profile: LlmProfile, handlers: DictationHandlers): Promise<Dictation> {
-  const stream = await openMicrophone();
-  const { mimeType, extension } = recorderType();
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-  const chunks: Blob[] = [];
-  const abort = new AbortController();
-  let discarded = false;
-
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) chunks.push(event.data);
-  };
-  recorder.onerror = () => {
-    release(stream);
-    if (!discarded) handlers.onError('Recording failed.');
-  };
-  recorder.onstop = () => {
-    release(stream);
-    if (discarded) return;
-    if (chunks.length === 0) {
-      handlers.onDone('');
-      return;
-    }
-    handlers.onProcessing();
-    const clip = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
-    transcribeClip(profile, clip, extension, abort.signal)
-      .then((text) => !discarded && handlers.onDone(text))
-      .catch((cause: unknown) => {
-        if (discarded) return;
-        handlers.onError(cause instanceof Error ? cause.message : String(cause));
-      });
-  };
-  recorder.start();
-
-  return {
-    stop: () => {
-      if (recorder.state !== 'inactive') recorder.stop();
-    },
-    cancel: () => {
-      discarded = true;
-      abort.abort();
-      if (recorder.state !== 'inactive') recorder.stop();
-      release(stream);
-    },
-  };
+  return { close: () => void context.close().catch(() => undefined) };
 }
 
 function toBase64(buffer: ArrayBuffer): string {
@@ -187,7 +113,7 @@ function toBase64(buffer: ArrayBuffer): string {
 async function startLive(profile: LlmProfile, handlers: DictationHandlers): Promise<Dictation> {
   const stream = await openMicrophone();
   const model = profile.voiceModel.trim();
-  let context: AudioContext | null = null;
+  let capture: PcmCapture | null = null;
   let socket: WebSocket | null = null;
   let finished = false;
   let stopping = false;
@@ -206,8 +132,8 @@ async function startLive(profile: LlmProfile, handlers: DictationHandlers): Prom
   const teardown = () => {
     clearTimeout(settle);
     release(stream);
-    void context?.close().catch(() => undefined);
-    context = null;
+    capture?.close();
+    capture = null;
     if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
     socket = null;
   };
@@ -312,20 +238,13 @@ async function startLive(profile: LlmProfile, handlers: DictationHandlers): Prom
   };
 
   try {
-    context = new AudioContext({ sampleRate: 24000 });
-    await context.audioWorklet.addModule(chrome.runtime.getURL('pcm-worklet.js'));
-    const source = context.createMediaStreamSource(stream);
-    const capture = new AudioWorkletNode(context, 'pcm-capture');
-    capture.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+    capture = await capturePcm(stream, 24000, (pcm) => {
       if (ws.readyState !== WebSocket.OPEN || stopping) return;
-      ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: toBase64(event.data) }));
-    };
-    source.connect(capture);
+      ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: toBase64(pcm) }));
+    });
   } catch (cause) {
     teardown();
-    throw new Error(cause instanceof Error ? cause.message : 'Could not capture audio.', {
-      cause,
-    });
+    throw cause;
   }
 
   return {
@@ -347,11 +266,238 @@ async function startLive(profile: LlmProfile, handlers: DictationHandlers): Prom
   };
 }
 
-export function startDictation(
+/**
+ * Gemini Live API with input transcription on. The key rides in the URL, which
+ * is how Google's own browser examples authenticate this socket.
+ *
+ * Two kinds of model answer differently:
+ * - Dedicated transcription models (`…-transcribe-live`) reply with text only.
+ *   `interimInputTranscription` is a draft that is replaced as you speak, and
+ *   `inputTranscription` is a finished segment.
+ * - Conversational Live models must reply with audio, which is ignored; their
+ *   `inputTranscription` arrives in fragments that are appended.
+ */
+async function startGeminiLive(
   profile: LlmProfile,
   handlers: DictationHandlers,
 ): Promise<Dictation> {
-  return profile.voiceMode === 'live'
-    ? startLive(profile, handlers)
-    : startRecorded(profile, handlers);
+  const stream = await openMicrophone();
+  const model = profile.voiceModel.trim().replace(/^models\//, '');
+  let capture: PcmCapture | null = null;
+  let finished = false;
+  let stopping = false;
+  let ready = false;
+  let settle: ReturnType<typeof setTimeout> | undefined;
+  const transcribeOnly = /transcribe/i.test(model);
+  // Finished text, plus the draft of the segment still being spoken.
+  let spoken = '';
+  let interim = '';
+  const transcript = () =>
+    [spoken, interim]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' ');
+
+  const teardown = () => {
+    clearTimeout(settle);
+    release(stream);
+    capture?.close();
+    capture = null;
+    if (ws.readyState <= WebSocket.OPEN) ws.close();
+  };
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    const text = transcript();
+    teardown();
+    handlers.onDone(text);
+  };
+  const fail = (message: string) => {
+    if (finished) return;
+    finished = true;
+    teardown();
+    handlers.onError(message);
+  };
+
+  const url = new URL(profileGeminiLiveUrl(profile));
+  if (profile.apiKey) url.searchParams.set('key', profile.apiKey);
+  const ws = new WebSocket(url);
+
+  const opened = new Promise<void>((resolve, reject) => {
+    ws.onopen = () => resolve();
+    ws.onerror = () => reject(new Error('Could not open the Gemini Live connection.'));
+  });
+  try {
+    await opened;
+  } catch (cause) {
+    release(stream);
+    throw cause;
+  }
+
+  const setupDone = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      finished = true;
+      teardown();
+      reject(new Error('Gemini Live did not respond. Check the model name and API key.'));
+    }, LIVE_SETUP_MS);
+    ws.onmessage = async (event) => {
+      let message: Record<string, unknown>;
+      try {
+        const raw = event.data instanceof Blob ? await event.data.text() : String(event.data);
+        message = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      if ('setupComplete' in message) {
+        ready = true;
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+      const content = message.serverContent as
+        | {
+            inputTranscription?: { text?: unknown };
+            interimInputTranscription?: { text?: unknown };
+            turnComplete?: unknown;
+          }
+        | undefined;
+      const interimText = content?.interimInputTranscription?.text;
+      if (typeof interimText === 'string') {
+        interim = interimText;
+        handlers.onText(transcript());
+      }
+      const finalText = content?.inputTranscription?.text;
+      if (typeof finalText === 'string') {
+        if (transcribeOnly) {
+          spoken = [spoken, finalText].filter((part) => part.trim()).join(' ');
+          interim = '';
+        } else {
+          spoken += finalText;
+        }
+        handlers.onText(transcript());
+        // The segment that was still open when the mic closed is the last one.
+        if (stopping && transcribeOnly) finish();
+      }
+      if (content?.turnComplete && stopping) finish();
+    };
+    ws.onclose = (event) => {
+      clearTimeout(timeout);
+      if (finished) return;
+      if (!ready) {
+        // Still starting: report through the start call rather than the handlers.
+        finished = true;
+        teardown();
+        reject(
+          new Error(
+            event.reason
+              ? `Gemini Live refused the connection: ${event.reason}`
+              : 'Gemini Live closed the connection.',
+          ),
+        );
+      } else if (stopping) finish();
+      else fail('The Gemini Live connection closed.');
+    };
+  });
+
+  ws.send(
+    JSON.stringify({
+      setup: {
+        model: `models/${model}`,
+        generationConfig: { responseModalities: [transcribeOnly ? 'TEXT' : 'AUDIO'] },
+        // An empty list lets the model detect the language.
+        inputAudioTranscription: transcribeOnly ? { languageCodes: [] } : {},
+      },
+    }),
+  );
+  await setupDone;
+
+  try {
+    capture = await capturePcm(stream, GEMINI_SAMPLE_RATE, (pcm) => {
+      if (ws.readyState !== WebSocket.OPEN || stopping) return;
+      ws.send(
+        JSON.stringify({
+          realtimeInput: {
+            audio: { data: toBase64(pcm), mimeType: `audio/pcm;rate=${GEMINI_SAMPLE_RATE}` },
+          },
+        }),
+      );
+    });
+  } catch (cause) {
+    finished = true;
+    teardown();
+    throw cause;
+  }
+
+  return {
+    stop: () => {
+      if (finished || stopping) return;
+      stopping = true;
+      handlers.onProcessing();
+      release(stream);
+      // Flushes audio the server is still holding, so the last words are transcribed.
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+      }
+      settle = setTimeout(finish, LIVE_SETTLE_MS);
+    },
+    cancel: () => {
+      finished = true;
+      teardown();
+    },
+  };
+}
+
+type Convert = (text: string) => string;
+let converter: Promise<Convert> | null = null;
+
+const HAN = /\p{Script=Han}/u;
+
+/**
+ * Chinese speech comes back in whichever script the model prefers, often
+ * Simplified, so a Simplified transcript is converted to Traditional with
+ * Taiwan wording (软件 becomes 軟體).
+ *
+ * Text that is already Traditional must stay exactly as spoken, and the phrase
+ * conversion would still reword it (打開 to 開啟), as would a character-only one
+ * (公里 to 公裡). So the script is judged first: a character that either
+ * direction would change is "evidence" for that script, and several characters
+ * are shared by both (里, 后, 发), which is why both directions are counted and
+ * Simplified has to win. Other languages have no Han text and pass through.
+ *
+ * The dictionaries are large, so they are separate chunks fetched on the first
+ * dictation only. If they cannot load, text is left as the model wrote it.
+ */
+export function loadTraditionalConverter(): Promise<Convert> {
+  converter ??= Promise.all([import('opencc-js/cn2t'), import('opencc-js/t2cn')])
+    .then(([forward, backward]) => {
+      const phrases = forward.Converter({ from: 'cn', to: 'twp' });
+      const traditionalOf = forward.Converter({ from: 'cn', to: 'tw' });
+      const simplifiedOf = backward.Converter({ from: 'tw', to: 'cn' });
+      const changed = (text: string, convert: (text: string) => string) =>
+        [...text].filter((char) => HAN.test(char) && convert(char) !== char).length;
+      return (text: string) =>
+        HAN.test(text) && changed(text, traditionalOf) > changed(text, simplifiedOf)
+          ? phrases(text)
+          : text;
+    })
+    .catch(() => {
+      converter = null;
+      return (text: string) => text;
+    });
+  return converter;
+}
+
+export async function startDictation(
+  profile: LlmProfile,
+  handlers: DictationHandlers,
+): Promise<Dictation> {
+  const convert = await loadTraditionalConverter();
+  const traditional: DictationHandlers = {
+    ...handlers,
+    onText: (text) => handlers.onText(convert(text)),
+    onDone: (text) => handlers.onDone(convert(text)),
+  };
+  return profile.apiContract === 'gemini'
+    ? startGeminiLive(profile, traditional)
+    : startLive(profile, traditional);
 }

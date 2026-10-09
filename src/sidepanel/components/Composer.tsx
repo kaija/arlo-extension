@@ -56,7 +56,7 @@ export function Composer({
   // A profile change or a run starting must not leave the microphone open, so
   // the state belongs to the key it was started under and reads as idle once
   // that key no longer matches.
-  const voiceKey = voice && !disabled ? `${voice.profile.id}:${voice.profile.voiceMode}` : '';
+  const voiceKey = voice && !disabled ? `${voice.profile.id}:${voice.profile.voiceModel}` : '';
   const [voiceSession, setVoiceSession] = useState<{ key: string; state: VoiceState }>({
     key: '',
     state: 'idle',

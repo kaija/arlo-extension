@@ -203,14 +203,17 @@ worker's own call, `GET <endpoint>/models` for Settings, lives in
 
 ### Voice input
 
-An OpenAI Responses or Chat Completions profile can also pick a voice mode and model. With one set,
-the chat box gets a microphone button that dictates a task
+An OpenAI Responses, Chat Completions or Gemini profile can also name a **Voice model**. With one
+set, the chat box gets a microphone button that dictates a task, and words appear as you speak
 ([`src/sidepanel/voice.ts`](src/sidepanel/voice.ts)):
 
-- **Speech to text** records a clip and posts it to `<Base URL>/audio/transcriptions` when you stop
-  (`gpt-4o-mini-transcribe`, `whisper-1`, or any compatible gateway such as Groq).
-- **Live stream** sends 24 kHz PCM to `<Base URL>/realtime?intent=transcription` over a WebSocket,
-  so words appear while you speak.
+- OpenAI-style profiles stream 24 kHz PCM to `<Base URL>/realtime?intent=transcription`
+  (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`).
+- Gemini profiles use the Live API socket with input transcription on
+  (`gemini-3.5-transcribe-live`).
+
+Chinese comes back as Traditional, with Taiwan wording: a Simplified transcript is converted, one
+that is already Traditional is left alone.
 
 The transcript goes into the chat box to be checked; "Send right after I stop speaking" in Settings
 sends it at once. Audio goes only to the profile's own origin. Chrome often cannot show the

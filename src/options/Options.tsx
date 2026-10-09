@@ -151,8 +151,8 @@ export function Options() {
             <div>
               <h2 className="card-title">Voice input</h2>
               <p className="card-sub">
-                Turn it on per profile under AI connections by choosing a speech-to-text or live
-                transcription model. Then the chat box gets a microphone button.
+                Turn it on per profile under AI connections by choosing a Voice model. Then the chat
+                box gets a microphone button, and your words appear as you speak.
               </p>
             </div>
           </div>

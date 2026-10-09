@@ -22,7 +22,6 @@ vi.mock('../src/sidepanel/voice', () => ({
 
 const profile = {
   ...createLlmProfile('openai-responses'),
-  voiceMode: 'live' as const,
   voiceModel: 'gpt-4o-transcribe',
 };
 

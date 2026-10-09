@@ -9,14 +9,6 @@ export const LLM_API_CONTRACTS = [
 
 export type LlmApiContract = (typeof LLM_API_CONTRACTS)[number];
 
-/**
- * How the microphone button turns speech into text:
- * - `stt`: record, then send the clip to `/audio/transcriptions` when you stop.
- * - `live`: stream audio to the Realtime transcription socket and fill the
- *   composer as you speak.
- */
-export const VOICE_MODES = ['off', 'stt', 'live'] as const;
-export type VoiceMode = (typeof VOICE_MODES)[number];
 export type ModelDiscoveryStatus = 'untested' | 'available' | 'unavailable' | 'failed';
 
 export interface ModelDiscoveryState {
@@ -35,9 +27,7 @@ export interface LlmProfile {
   rememberApiKey: boolean;
   modelIds: string[];
   discovery: ModelDiscoveryState;
-  /** Voice input for the chat composer; `off` hides the microphone. */
-  voiceMode: VoiceMode;
-  /** The speech-to-text or live transcription model; used when `voiceMode` is not `off`. */
+  /** A live transcription model. Empty turns voice input off; set, it adds a microphone to the chat box. */
   voiceModel: string;
   /** Exact origins acknowledged by the user. Changed origins require consent again. */
   dataOriginAcknowledged?: string;
@@ -107,7 +97,6 @@ export function createLlmProfile(apiContract: LlmApiContract): LlmProfile {
     rememberApiKey: true,
     modelIds: [],
     discovery: { status: 'untested' },
-    voiceMode: 'off',
     voiceModel: '',
   };
 }
@@ -147,10 +136,6 @@ export function profileEndpoint(profile: Pick<LlmProfile, 'apiContract' | 'baseU
   return `${normalizeBaseUrl(profile.baseUrl)}/${path}`;
 }
 
-export function profileTranscriptionsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): string {
-  return `${normalizeBaseUrl(profile.baseUrl)}/audio/transcriptions`;
-}
-
 /** The Realtime transcription socket: the Base URL with its scheme swapped for ws(s). */
 export function profileRealtimeUrl(profile: Pick<LlmProfile, 'baseUrl'>): string {
   const url = new URL(`${normalizeBaseUrl(profile.baseUrl)}/realtime`);
@@ -160,34 +145,29 @@ export function profileRealtimeUrl(profile: Pick<LlmProfile, 'baseUrl'>): string
 }
 
 /**
- * Anthropic has no speech endpoint, and Gemini's OpenAI-compatible surface does
- * not expose `/audio/transcriptions`, so voice is offered on the OpenAI wire
- * formats (and gateways that copy them, such as Groq) only.
+ * Gemini's Live API socket. Its Base URL is the OpenAI-compatible
+ * `…/v1beta/openai`, which is the same host; the key is added by the caller.
+ */
+export function profileGeminiLiveUrl(profile: Pick<LlmProfile, 'baseUrl'>): string {
+  const url = new URL(normalizeBaseUrl(profile.baseUrl));
+  url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+  url.pathname = '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+  url.search = '';
+  return url.toString();
+}
+
+/**
+ * Anthropic has no speech endpoint, so voice is offered on the OpenAI wire
+ * formats (and gateways that copy them, such as Groq) and on Gemini, which
+ * transcribes through its own chat and Live endpoints.
  */
 export function contractSupportsVoice(apiContract: LlmApiContract): boolean {
-  return apiContract === 'openai-responses' || apiContract === 'openai-chat-completions';
+  return apiContract !== 'anthropic-messages';
 }
 
 /** The profile a microphone button can be shown for. */
-export function voiceEnabled(
-  profile: Pick<LlmProfile, 'apiContract' | 'voiceMode' | 'voiceModel'>,
-): boolean {
-  return (
-    contractSupportsVoice(profile.apiContract) &&
-    profile.voiceMode !== 'off' &&
-    !!profile.voiceModel.trim()
-  );
-}
-
-export function voiceModeLabel(mode: VoiceMode): string {
-  switch (mode) {
-    case 'off':
-      return 'Off';
-    case 'stt':
-      return 'Speech to text (transcribe after you stop)';
-    case 'live':
-      return 'Live stream (transcribe as you speak)';
-  }
+export function voiceEnabled(profile: Pick<LlmProfile, 'apiContract' | 'voiceModel'>): boolean {
+  return contractSupportsVoice(profile.apiContract) && !!profile.voiceModel.trim();
 }
 
 export function profileModelsEndpoint(profile: Pick<LlmProfile, 'baseUrl'>): string {
@@ -198,9 +178,6 @@ export function validateLlmProfile(profile: LlmProfile): string[] {
   const errors: string[] = [];
   if (!profile.name.trim()) errors.push('Profile name is required.');
   if (!profile.model.trim()) errors.push('Model is required.');
-  if (profile.voiceMode !== 'off' && !profile.voiceModel.trim()) {
-    errors.push('Choose a voice model, or turn voice input off.');
-  }
   try {
     const parsed = new URL(normalizeBaseUrl(profile.baseUrl));
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -280,10 +257,13 @@ function normalizeProfile(value: unknown): LlmProfile | null {
       ? candidate.modelIds.filter((model): model is string => typeof model === 'string')
       : [],
     discovery: normalizeDiscovery(candidate.discovery),
-    voiceMode: VOICE_MODES.includes(candidate.voiceMode as VoiceMode)
-      ? (candidate.voiceMode as VoiceMode)
-      : 'off',
-    voiceModel: typeof candidate.voiceModel === 'string' ? candidate.voiceModel : '',
+    // Profiles saved while a record-then-transcribe mode existed hold a model
+    // that cannot stream, so voice is switched off for them rather than broken.
+    voiceModel:
+      typeof candidate.voiceModel === 'string' &&
+      (candidate as { voiceMode?: unknown }).voiceMode !== 'stt'
+        ? candidate.voiceModel
+        : '',
     ...(typeof candidate.dataOriginAcknowledged === 'string'
       ? { dataOriginAcknowledged: candidate.dataOriginAcknowledged }
       : {}),
