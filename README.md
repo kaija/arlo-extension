@@ -196,7 +196,7 @@ requires the user to confirm the new data destination.
 
 The turn runs on the OpenAI Agents SDK inside the panel
 ([`src/sidepanel/local-agent.ts`](src/sidepanel/local-agent.ts)); the model is reached directly
-through an `OpenAI` client with tracing disabled. Anthropic profiles are still offered for model
+through an `OpenAI` client with tracing disabled. Google Gemini profiles run over Gemini's OpenAI-compatible endpoint. Anthropic profiles are still offered for model
 discovery but cannot run a turn — the SDK speaks only the OpenAI wire formats. The service
 worker's own call, `GET <endpoint>/models` for Settings, lives in
 [`src/background/llm-client.ts`](src/background/llm-client.ts).

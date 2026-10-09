@@ -464,7 +464,9 @@ export function LlmProfiles({ settings, onUpdate }: LlmProfilesProps) {
                         ? 'Native Claude Messages API'
                         : contract === 'openai-responses'
                           ? 'OpenAI Responses API and compatible gateways'
-                          : 'OpenAI Chat Completions and compatible gateways'}
+                          : contract === 'gemini'
+                            ? 'Gemini API through its OpenAI-compatible endpoint'
+                            : 'OpenAI Chat Completions and compatible gateways'}
                     </span>
                   </button>
                 ))}

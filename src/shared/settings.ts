@@ -4,6 +4,7 @@ export const LLM_API_CONTRACTS = [
   'anthropic-messages',
   'openai-responses',
   'openai-chat-completions',
+  'gemini',
 ] as const;
 
 export type LlmApiContract = (typeof LLM_API_CONTRACTS)[number];
@@ -71,6 +72,11 @@ const CONTRACT_DEFAULTS: Record<LlmApiContract, { name: string; baseUrl: string 
     name: 'OpenAI Chat Completions',
     baseUrl: 'https://api.openai.com/v1',
   },
+  // Google's OpenAI-compatible surface; the native generateContent API is not used.
+  gemini: {
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  },
 };
 
 export function createLlmProfile(apiContract: LlmApiContract): LlmProfile {
@@ -100,6 +106,8 @@ export function contractLabel(apiContract: LlmApiContract): string {
       return 'OpenAI Responses';
     case 'openai-chat-completions':
       return 'OpenAI Chat Completions';
+    case 'gemini':
+      return 'Google Gemini';
   }
 }
 
@@ -117,7 +125,7 @@ export function profileEndpoint(profile: Pick<LlmProfile, 'apiContract' | 'baseU
       ? 'messages'
       : profile.apiContract === 'openai-responses'
         ? 'responses'
-        : 'chat/completions';
+        : 'chat/completions'; // OpenAI Chat Completions and Gemini's compatible endpoint
   return `${normalizeBaseUrl(profile.baseUrl)}/${path}`;
 }
 
